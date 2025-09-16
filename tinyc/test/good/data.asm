@@ -1,0 +1,4 @@
+.word 0xffff, 0xeeee
+main:
+    put 0x3333, l1
+    halt

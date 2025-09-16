@@ -1,0 +1,4 @@
+main:
+    halt
+main:
+    halt
