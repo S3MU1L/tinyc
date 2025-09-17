@@ -5,10 +5,13 @@
 ---
 
 ## 🚀 Overview
+
 **tinyc** is a toy compiler that implements a **small but expressive subset of the C language**.  
-It’s designed as a learning project: you write programs in tinyc, the compiler lowers them into **LLVM IR**, and then LLVM handles optimization and machine code generation.
+It’s designed as a learning project: you write programs in tinyc, the compiler lowers them into **LLVM IR**, and then
+LLVM handles optimization and machine code generation.
 
 This project demonstrates:
+
 - Compiler front-end design (lexer, parser, AST, semantic analysis).
 - Mapping C constructs to LLVM IR (types, functions, control flow).
 - Interoperability with system libraries (e.g., calling `printf`).
@@ -16,8 +19,10 @@ This project demonstrates:
 ---
 
 ## ✨ Features
+// TODO: add that we won't have preprocessing features
+// Compilation unit is only one source file
 - **Types**
-    - `int` (32-bit), `char` (8-bit), `void`
+    - `int` (32-bit), `char` (8-bit),  `bool` (8-bit), ?`void`?
     - Pointers (`T*`)
     - Arrays (`T[N]`, decays to pointer in expressions)
     - `struct` (record types, field access)
