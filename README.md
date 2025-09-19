@@ -19,10 +19,9 @@ This project demonstrates:
 ---
 
 ## ✨ Features
-// TODO: add that we won't have preprocessing features
-// Compilation unit is only one source file
+
 - **Types**
-    - `int` (32-bit), `char` (8-bit),  `bool` (8-bit), ?`void`?
+    - `int` (32-bit), `char` (8-bit), `bool` (8-bit), `unsigned` (32-bit)
     - Pointers (`T*`)
     - Arrays (`T[N]`, decays to pointer in expressions)
     - `struct` (record types, field access)
@@ -51,6 +50,15 @@ This project demonstrates:
     - Works with standard C library (e.g., `printf`, `getchar`, `putchar`)
 
 ---
+
+## Missing Features / Limitations
+
+- No floating-point types or operations
+- No `switch` / `case` and `goto`
+- No `typedef`, `enum`, or `union` types
+- No advanced optimizations (beyond what LLVM provides)
+- No preprocessor support (e.g., `#include`, `#define`)
+- No variadic functions
 
 ## 📖 Example
 
