@@ -1,366 +1,99 @@
-**EBNF-style grammar for TinyC**
-```ebnf
-top-level	::= { top-level-elem | comment }
+** TinyC EBNF
+```{ebnf}
+program ::= { top_level } ;
 
-top-level-elem	::= decl-stmt | fn-definition
+top_level ::= declaration | function_definition | struct_declaration ;
 
-+Syntax::Functions
+struct_declaration ::= "struct" identifier "{" { var_declaration } "}" ";"
+| "struct" identifier ";" ;
 
-fun-definition	::= fun-signature compound-statement
+function_definition ::= type_specifier declarator "(" [ parameter_list ] ")" compound_statement ;
 
-fun-signature	::= [ kw-static ] [ kw-inline ] tyy-decl identifier '(' tyyid-pair-list ')'
+declaration ::= type_specifier init_declarator_list ";" ;
 
-+Syntax::Statements
+var_declaration ::= type_specifier init_declarator_list ";" ;
 
-labeled-stmt	::= identifier ':' statement-list
+init_declarator_list ::= init_declarator { "," init_declarator } ;
 
-statement-list  ::= { statement }
+init_declarator ::= declarator [ "=" initializer ] ;
 
-statement	::= decl-stmt
-		| for-stmt
-		| break-stmt
-		| null-stmt
-		| return-stmt
-		| compound-stmt
-		| continue-stmt
-		| if-stmt
-		| while-stmt
-		| do-while-stmt
-		| labeled-stmt
-		| goto-stmt
+initializer ::= expression | "{" initializer_list "}" ;
 
-compound-stmt	::= '{' statement-list '}'
+initializer_list ::= initializer { "," initializer } ;
 
-goto-stmt	::= kw-goto identifier ';'
+parameter_list ::= parameter { "," parameter } ;
 
-null-stmt	::= ';'
+parameter ::= type_specifier declarator ;
 
-return-stmt	::= kw-return expression ';'
+type_specifier ::= "int" | "char" | "bool" | "unsigned" | struct_type ;
 
-continue-stmt	::= kw-continue ';'
+struct_type ::= "struct" identifier | "struct" "{" { var_declaration } "}" ;
 
-break-stmt	::= kw-break ';'
+declarator ::= pointer_opt direct_declarator ;
 
-if-stmt		::= kw-if '(' expr-list ')' compound-stmt { kw-else [ '(' expr-list ')' ] compound-stmt }
+pointer_opt ::= { "*" } ;
 
-while-stmt	::= kw-while '(' expr-list ')' compound-stmt
+direct_declarator ::= identifier { "[" constant_expression? "]" }
+| "(" declarator ")" ;
 
-do-while-stmt	::= kw-do compound-stmt kw-while '(' expr-list ')'
+constant_expression ::= expression ; (* used for array sizes; may be a number *)
 
-for-stmt	::= kw-for '(' assign-list ';' expr-list ';' expr-list ')' compound-stmt
+compound_statement ::= "{" { var_declaration } { statement } "}" ;
 
-decl-stmt	::= assign-list ';'
-		| tyy-defn ';'
-		| fun-signature ';'
+statement ::= expression_statement
+| compound_statement
+| selection_statement
+| iteration_statement
+| jump_statement
+| ";" ;
 
-+Syntax::AssignStatment
+expression_statement ::= [ expression ] ";" ;
 
-assign-list 	::= assign-stmt { ',' assign-stmt }
+selection_statement ::= "if" "(" expression ")" statement [ "else" statement ] ;
 
-assign		::= dyn-init
-		| const-init
-		| comp-literal
+iteration_statement ::= "while" "(" expression ")" statement
+| "for" "(" [ expression ] ";" [ expression ] ";" [ expression ] ")" statement ;
 
-comp-init	::= [ tyy-decl ] lhs-id [ '=' [ tyy-case ] comp-literal ]
+jump_statement ::= "return" [ expression ] ";" ;
 
-dyn-init	::= [ tyy-decl ] lhs-id [ '=' [ tyy-cast ] expression ]
+expression ::= assignment_expression ;
 
-const-init	::= [ tyy-decl ] lhs-id [ '=' [ tyy-cast ] const-literal ]
+assignment_expression ::= logical_or_expression
+| unary_expression "=" assignment_expression ;
 
-lhs-id		::= [ kw-const ] [ '*' ] ( long-index-opt | index-opt )
+logical_or_expression ::= logical_and_expression { "||" logical_and_expression } ;
 
-+Syntax::Expression
+logical_and_expression ::= equality_expression { "&&" equality_expression } ;
 
-expr-list	::= expression { ',' expression }
+equality_expression ::= relational_expression { ( "==" | "!=" ) relational_expression } ;
 
-expression	::= primary
-	        | unary
-		| binary
-		| ternary
-		| inplace
-		| synthesized
+relational_expression ::= additive_expression { ( "<" | ">" | "<=" | ">=" ) additive_expression } ;
 
-synthesized	::= '(' assign-list ')'
+additive_expression ::= multiplicative_expression { ( "+" | "-" ) multiplicative_expression } ;
 
-inplace		::= long-index-opt ( "+="    | "-=" 
-				    | "*="  | "/=" 
-				    | "%="  | "<<=" 
-				    | ">>=" | "&=" 
-				    | "|="  | "^=" ) expression
+multiplicative_expression ::= unary_expression { ( "*" | "/" | "%" ) unary_expression } ;
 
-ternary		::= binary '?' binary ':' binary 
+unary_expression ::= ( "!" | "-" | "&" | "*" ) unary_expression
+| postfix_expression ;
 
-+Syntax::Binary-Expression
+postfix_expression ::= primary_expression { postfix_suffix } ;
 
-binary		::= logor-expr
+postfix_suffix ::= "[" expression "]"
+| "." identifier
+| "->" identifier
+| "(" [ argument_expression_list ] ")" ;
 
-logor-expr	::= logand-expr "||" logor-expr
+argument_expression_list ::= assignment_expression { "," assignment_expression } ;
 
-logand-expr	::= bitor-expr "&&" logand-expr
+primary_expression ::= identifier
+| constant
+| string_literal
+| "(" expression ")" ;
 
-bitor-expr	::= bitxor-expr '|' bitor-expr
+constant ::= integer_constant | character_constant ;
 
-bitxor-expr	::= bitand-expr '^' bitxor-expr
-
-bitand-expr	::= eqop-expr '&' bitand-expr
-
-eqop-expr	::= relop-expr "==" eqop-expr
-		| relop-expr "!=" eqop-expr
-
-relop-expr	::= shift-expr '<' relop-expr
-		| shift-expr '>' relop-expr
-		| shift-expr "<=" relop-expr
-		| shift-expr ">=" relop-expr
-
-shift-expr	::= add-expr ">>" shift-expr
-		| add-expr "<<" shift-expr
-
-add-expr	::= mult-expr '+' add-expr
-		| mult-expr '-' add-expr
-
-mult-expr	::= unary '*' multi-expr
-		| unary '/' multi-expr
-		| unary '%' mutli-expr
-
-+Syntax::Unary-Expression
-
-unary		::= unary-plus
-		| unary-minus
-		| unary-1scomp
-		| unary-2scomp
-		| unary-lnot
-		| unary-ref
-                 | unary-deref
-		| unary-preinc
-		| unary-predec
-		| unary-postinc
-		| unary-postdec
-                 | unary-offsetof
-		| unary-sizeof
-
-unary-offsetof	::= "offsetof" primary
-
-unary-sizeof	::= "sizeof" primary
-
-unary-postdec	::= primary "--"
-
-unary-postinc	::= primary "++"
-
-unary-predec	::= "--" primary
-
-unary-preinc	::= "++" primary
-
-unary-deref	::= '*' primary
-
-unary-ref	::= '&' primary
-
-unary-lnot	::= '!' primary
-
-unary-2scompl	::= '~' primary
-
-unary-1scompl	::= '-' primary
-
-unary-plus	::= '+' primary
-
-+Syntax::Primary
-
-primary		::= prim-expr 
-		| prim-funcall 
-		| prim-literal
-		| prim-ident
-
-prim-expr	::= '(' expression ')'
-
-prim-funcall	::= identifier '(' expr-list ')'
-
-prim-literal	::= const-literal
-
-prim-ident	::= long-index-opt
-		| index-opt
-
-
-+Syntax::Types
-
-tyyid-pair-list	::= tyyid-pair { ',' tyyid-pair }
-
-tyyid-pair	::= tyy-decl [ kw-const ] [ '*' ] identifier
-
-tyy-lit		::= tyy-enum-lit
-		| tyy-ext-lit
-
-tyy-enum-lit	::= '{' tyy-enum-field { ',' tyy-enum-field } '}'
-
-tyy-enum-field	::= identifier [ '=' int-const ]
-
-tyy-ext-lit	::= '{' tyy-ext-field { ';' tyy-ext-field } '}'
-
-tyy-ext-field	::= tyy-decl identifier
-
-tyy-decl	::= [ tyy-storage ] [ tyy-qualifier ] [ '*' ] tyy-body
-
-tyy-defn	::= kw-typedef tyy-body tyy-alias
-
-tyy-storage	::= kw-auto
-		| kw-static
-		| kw-extern
-		| kw-register
-
-tyy-qualifier	::= kw-const
-		| kw-volatile
-		| kw-restrict
-
-tyy-cast	::= '(' tyy-ref ')'
-
-tyy-ref		::= tyy-body [ '*' ]
-
-tyy-body	::= tyy-base
-		| tyy-ext
-		| tyy-lit
-
-tyy-ext		::= tyy-ext-union
-		| tyy-ext-enum
-		| tyy-ext-struct
-
-tyy-ext-union	::= kw-union tyy-alias
-
-tyy-ext-enum	::= kw-enum tyy-alias
-
-tyy-ext-struct	::= kw-struct tyy-alias
-
-tyy-alias	::= identifier
-
-tyy-base	::= [ tyy-base-word ] [ tyy-base-sign ] tyy-base-body
-
-tyy-base-word	::= kw-long
-		| kw-short
-
-tyy-base-sign 	::= kw-signed
-		| kw-unsigned
-		
-tyy-base-body	::= kw-char
-		| kw-int
-		| kw-float
-		| kw-double
-		| kw-void
-
-+Syntax::Idents
-
-long-index-opt	::= long-ident [ index ]
-
-index-opt	::= identifier [ index ]
-
-index		::= '[' [ long-ident | const-literal ] ']'
-
-long-ident	::= identifier { ( dot-ident | arrow-ident ) }
-
-dot-ident	::= identifier { '.' identifier }
-
-arrow-ident	::= identifier { "->" identifier }
-
-+Syntax::CompoundLiteral
-
-comp-literal	::= [ '(' tyy-decl ')' ] list-literal
-
-list-literal	::= '{'  designated-init { ',' designated-init } '}'
-
-designated-init ::= [ '.' identifier '=' ] const-literal
-
-Gramamr::Lexical::ANSI-C
-
-+Lexical::Keywords
-
-kw-auto		::= "auto"
-kw-break	::= "break"
-kw-case		::= "case"
-kw-char		::= "char"
-kw-const	::= "const"
-kw-continue	::= "continue"
-kw-default	::= "default"
-kw-do		::= "do"
-kw-double	::= "double"
-kw-else		::= "else"
-kw-enum 	::= "enum"
-kw-extern 	::= "extern"
-kw-float 	::= "float"
-kw-for 		::= "for"
-kw-goto 	::= "goto"
-kw-if 		::= "if"
-kw-int 		::= "int"
-kw-long 	::= "long"
-kw-register 	::= "register"
-kw-return 	::= "return"
-kw-short 	::= "short"
-kw-signed 	::= "signed"
-kw-sizeof 	::= "sizeof"
-kw-static 	::= "static"
-kw-struct 	::= "struct"
-kw-switch 	::= "switch"
-kw-typedef 	::= "typedef"
-kw-union 	::= "union"
-kw-unsigned 	::= "unsigned"
-kw-void 	::= "void"
-kw-volatile 	::= "volatile"
-kw-while 	::= "while"
-
-+Lexical::LiteralTokens
-
-const-literal	::= expr-const | str-const | char-const | num-const | int-const | null-const
-
-null-const	::= "NULL"
-
-expr-const	::= int-const { ( '+' | '-' | '*' | '%' | '/' | '&' | '|' ) int-const }
-
-str-const	::= [ 'L' ] '"' { character } '"'
-
-char-const	::= "'" character  "'"
-
-num-const	::= integer | rational
-
-float-const	::= float
-
-int-const	::= integer | char-const
-
-rational	::= [ intenger ] '.' integer
-
-integer		::= dec-digit | hex-digit | oct-digit | bin-digit
-
-bin-integer	::= ( "0b" | "0B" ) bin-digit { bin-digit }
-
-oct-integer	::= ( "0o" | "0O" ) oct-digt { oct-digit }
-
-hex-integer	::= ( "0x" | "0X" ) hex-digit { hex-digit }
-
-dec-integer	::= digit { digit }
-
-identifier	::= ( letter | '_' ) { letter | digit | '_' }
-
-letter		::= upper-case | lower-case
-
-lower-case	::= 'a' | 'b' | 'c' | ... | 'x' | 'y' | 'z'
-
-upper-case	::= 'A' | 'B' | 'C' | ... | 'X' | 'Y' | 'Z'
-
-hex-digit	::= digit | 'a' | 'b' | 'c' | 'd' | 'e' | 'f'
-			 | 'A' | 'B' | 'C' | 'D' | 'E' | 'F'
-
-digit		::= oct-digit | '8' | '9'
-
-oct-digit	::= bin-digit | '2' | '3' | '4' | '5' | '6' | '7'
-
-bin-digit	::= '0' | '1'
-
-character	::= printable | char-escape | hex-escape | oct-escape
-
-printable	::= ' ' | '!' | '"' | ... | '|' | '}' | '~'
-
-char-escape	::= '\' escapable
-
-hex-escape	::= "\x" hex-digit hex-digit
-
-oct-escape	::= '\' oct-digit oct-dit oct-digit
-
-escapble	::= 'n' | 'a' | 'b' | 't' | 'f' | 'r' | 'v' | '\' | "'" | '"' | '?' | '0'
-
-comment		::= "// " ? any-char ? "\n"
-		| "/*" ? any-char "*/"
+identifier ::= /* token: identifier */ ;
+integer_constant ::= /* token: decimal | hex | octal */ ;
+character_constant ::= /* token: 'a', '\n', etc. */ ;
+string_literal ::= /* token: "..." */ ;
 ```
