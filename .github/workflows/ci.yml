@@ -1,0 +1,56 @@
+name: C/C++ CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    name: Build and test (CMake)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler: [gcc, clang]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake ninja-build pkg-config ca-certificates
+          sudo apt-get install -y clang
+
+      - name: Configure (Ninja, Debug)
+        env:
+          CC: ${{ matrix.compiler }}
+          CXX: ${{ matrix.compiler }}++
+        run: |
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug
+
+      - name: Build
+        run: |
+          cmake --build build -- -j
+
+      - name: Run tests
+        run: |
+          if [ -x ./test/check.sh ]; then
+            ./test/check.sh
+          else
+            echo "No test harness found: ./test/check.sh is missing or not executable" && exit 1
+          fi
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tinyc-build
+          path: build
+
+      - name: Print diagnostics (optional)
+        if: failure()
+        run: |
+          echo "Workflow failed; printing build logs (if any)"
+          ls -la build || true
+
