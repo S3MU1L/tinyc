@@ -15,5 +15,7 @@ add_executable(tinyc
         tinyc/src/lexer/lexer.hpp
         tinyc/src/lexer/lexer.cpp
         tinyc/src/util/option.hpp
-        tinyc/src/parser/Expr.hpp
-        tinyc/src/parser/Stmt.hpp)
+        tinyc/src/parser/expr.hpp
+        tinyc/src/parser/stmt.hpp
+        tinyc/src/parser/parser.hpp
+        tinyc/src/parser/parser.cpp)

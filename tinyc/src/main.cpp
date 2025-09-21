@@ -18,7 +18,6 @@ int main(int argc, char *argv[])
         tinyc::lexer::Lexer lexer(content);
         lexer.scan_tokens();
 
-        // Report lexer diagnostics
         const auto &diags = lexer.get_diagnostics();
         for (const auto &d : diags)
         {
