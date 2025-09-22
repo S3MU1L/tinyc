@@ -1,16 +1,20 @@
+#include "codegen/codegen.hpp"
 #include "lexer/lexer.hpp"
+#include "parser/ast_printer.hpp"
+#include "parser/parser.hpp"
+#include "parser/stmt.hpp"
 #include "util/args_parser.hpp"
 #include "util/file_reader.hpp"
 #include "util/option.hpp"
 
 #include <iostream>
 
-int main(int argc, char *argv[])
+int main(const int argc, char *argv[])
 {
     std::cout << "Hello from tinyc!\n";
     try
     {
-        tinyc::util::Option opt = tinyc::util::ArgsParser::parse(argc, argv);
+        const tinyc::util::Option opt = tinyc::util::ArgsParser::parse(argc, argv);
         tinyc::util::FileUtil::check_file(opt.input_file);
         const std::string content = tinyc::util::FileUtil::read_file(opt.input_file);
         std::cout << content << "\n";
@@ -18,8 +22,7 @@ int main(int argc, char *argv[])
         tinyc::lexer::Lexer lexer(content);
         lexer.scan_tokens();
 
-        const auto &diags = lexer.get_diagnostics();
-        for (const auto &d : diags)
+        for (const auto &diags = lexer.get_diagnostics(); const auto &d : diags)
         {
             const char *lvl = (d.level == tinyc::lexer::Lexer::Diagnostic::Level::Error)
                                   ? "error"
@@ -31,22 +34,15 @@ int main(int argc, char *argv[])
         if (lexer.has_errors())
             return EXIT_FAILURE;
 
-        for (const auto &token : lexer.tokens)
-        {
+        tinyc::parser::Parser                     parser(lexer.tokens);
+        const std::vector<tinyc::parser::StmtPtr> statements = parser.parse();
+        std::cout << "Parsing completed successfully.\n";
+        for (const auto &stmt : statements)
+            tinyc::parser::ASTPrinter::print(stmt, std::cout, 0);
 
-            std::cout << "Token: " << token.lexeme << " ";
-
-            if (std::holds_alternative<long long>(token.literal))
-                std::cout << "Literal: " << std::get<long long>(token.literal);
-            else if (std::holds_alternative<unsigned long long>(token.literal))
-                std::cout << "Literal: " << std::get<unsigned long long>(token.literal);
-            else if (std::holds_alternative<bool>(token.literal))
-                std::cout << "Literal: " << (std::get<bool>(token.literal) ? "true" : "false");
-            else
-                std::cout << "No Literal";
-            std::cout << " (line " << token.line << ")\n";
-        }
-
+        tinyc::codegen::CodeGen codegen("tinyc_module");
+        codegen.generate(statements);
+        codegen.module->print(llvm::outs(), nullptr);
         return EXIT_SUCCESS;
     } catch (const std::exception &e)
     {
