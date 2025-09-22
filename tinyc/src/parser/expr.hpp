@@ -3,6 +3,7 @@
 #include "../lexer/token.hpp"
 
 #include <memory>
+#include <utility>
 #include <vector>
 
 namespace tinyc::parser {
@@ -18,7 +19,7 @@ struct LiteralExpr final : Expr
 {
     lexer::Token token;
 
-    explicit LiteralExpr(const lexer::Token &t) : token(t)
+    explicit LiteralExpr(lexer::Token t) : token(std::move(t))
     {
     }
 };
@@ -27,7 +28,7 @@ struct VariableExpr final : Expr
 {
     lexer::Token name;
 
-    explicit VariableExpr(const lexer::Token &n) : name(n)
+    explicit VariableExpr(lexer::Token n) : name(std::move(n))
     {
     }
 };
@@ -37,7 +38,7 @@ struct UnaryExpr final : Expr
     lexer::Token op;
     ExprPtr      right;
 
-    UnaryExpr(const lexer::Token &op_, ExprPtr r) : op(op_), right(std::move(r))
+    UnaryExpr(lexer::Token op_, ExprPtr r) : op(std::move(op_)), right(std::move(r))
     {
     }
 };
@@ -48,8 +49,8 @@ struct BinaryExpr final : Expr
     lexer::Token op;
     ExprPtr      right;
 
-    BinaryExpr(ExprPtr l, const lexer::Token &op_, ExprPtr r)
-        : left(std::move(l)), op(op_), right(std::move(r))
+    BinaryExpr(ExprPtr l, lexer::Token op_, ExprPtr r)
+        : left(std::move(l)), op(std::move(op_)), right(std::move(r))
     {
     }
 };
@@ -59,7 +60,7 @@ struct AssignmentExpr final : Expr
     lexer::Token name;
     ExprPtr      value;
 
-    AssignmentExpr(const lexer::Token &n, ExprPtr v) : name(n), value(std::move(v))
+    AssignmentExpr(lexer::Token n, ExprPtr v) : name(std::move(n)), value(std::move(v))
     {
     }
 };

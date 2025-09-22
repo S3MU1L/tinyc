@@ -84,8 +84,8 @@ struct VarDeclStmt final : Stmt
     lexer::Token name;
     ExprPtr      initializer;
 
-    VarDeclStmt(lexer::Token t, const lexer::Token &n, ExprPtr init)
-        : type_token(std::move(t)), name(n), initializer(std::move(init))
+    VarDeclStmt(lexer::Token t, lexer::Token n, ExprPtr init)
+        : type_token(std::move(t)), name(std::move(n)), initializer(std::move(init))
     {
     }
 };
@@ -97,9 +97,10 @@ struct FunctionDeclStmt final : Stmt
     std::vector<lexer::Token>     parameters;
     std::unique_ptr<CompoundStmt> body;
 
-    FunctionDeclStmt(lexer::Token t, const lexer::Token &n, std::vector<lexer::Token> params,
+    FunctionDeclStmt(lexer::Token t, lexer::Token n, std::vector<lexer::Token> params,
                      std::unique_ptr<CompoundStmt> b)
-        : type_token(std::move(t)), name(n), parameters(std::move(params)), body(std::move(b))
+        : type_token(std::move(t)), name(std::move(n)), parameters(std::move(params)),
+          body(std::move(b))
     {
     }
 };
