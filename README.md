@@ -21,11 +21,10 @@ This project demonstrates:
 ## ✨ Features
 
 - **Types**
-    - `int` (32-bit), `char` (8-bit), `bool` (8-bit), `unsigned` (32-bit)
+    - `int` (32-bit), `unsigned` (32-bit)
     - Pointers (`T*`)
     - Arrays (`T[N]`, decays to pointer in expressions)
     - `struct` (record types, field access)
-    - `union` (overlapping storage, accessed via casts)
 
 - **Expressions**
     - Arithmetic: `+ - * / %`
