@@ -26,6 +26,7 @@ add_executable(tinyc
         tinyc/src/parser/ast_printer.hpp
         tinyc/src/parser/ast_printer.hpp
         tinyc/src/codegen/codegen.hpp
-        tinyc/src/codegen/codegen.cpp)
+        tinyc/src/codegen/codegen.cpp
+)
 
 target_link_libraries(tinyc PRIVATE LLVM)
