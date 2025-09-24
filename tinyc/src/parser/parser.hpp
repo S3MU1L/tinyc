@@ -1,12 +1,12 @@
 #pragma once
 
-#include "stmt.hpp"
+#include "../ast/stmt.hpp"
 #include "../lexer/token.hpp"
 
 #include <vector>
 #include <memory>
 
-namespace tinyc::parser {
+namespace tinyc::ast {
 
 struct Parser
 {

@@ -5,7 +5,7 @@
 
 #include "../util/error.hpp"
 
-namespace tinyc::parser {
+namespace tinyc::ast {
 
 using TT = lexer::TokenType;
 
