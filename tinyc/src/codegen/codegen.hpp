@@ -1,36 +1,20 @@
 #pragma once
 
-#include "../parser/stmt.hpp"
-#include "../lexer/token.hpp"
-
-#include <map>
-#include <memory>
-#include <string>
 #include <llvm/IR/LLVMContext.h>
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/Module.h>
-
+#include <map>
 
 namespace tinyc::codegen {
-struct CodeGen
-{
-    llvm::LLVMContext                    context;
-    llvm::IRBuilder<>                    builder;
-    std::unique_ptr<llvm::Module>        module;
-    std::map<std::string, llvm::Value *> named_values;
+// This is an object that owns LLVM core data structures
+extern llvm::LLVMContext context;
 
-    llvm::Function *current_function = nullptr;
+// This is a helper object that makes easy to generate LLVM instructions
+extern llvm::IRBuilder<> builder;
 
-    explicit CodeGen(const std::string &module_name)
-        : builder(context), module(std::make_unique<llvm::Module>(module_name, context))
-    {
-    }
+// This is an LLVM construct that contains functions and global variables
+extern std::unique_ptr<llvm::Module> modules;
 
-    void              generate(const std::vector<parser::StmtPtr> &statements);
-    void              gen_stmt(const parser::StmtPtr &stmt);
-    void              gen_expr(const parser::ExprPtr &expr);
-    llvm::AllocaInst *create_entry_block_alloca(llvm::Function *func, const std::string &var_name,
-                                                llvm::Type *    type);
-    llvm::Type *get_llvm_type_from_token(const lexer::Token &type_token);
-};
+// This map keeps track of which values are defined in the current scope
+extern std::map<std::string, llvm::Value *> named_values;
 }
