@@ -1,8 +1,9 @@
 #include "codegen/codegen.hpp"
 #include "lexer/lexer.hpp"
-#include "parser/ast_printer.hpp"
+#include "ast/ast_printer.hpp"
 #include "parser/parser.hpp"
-#include "parser/stmt.hpp"
+#include "ast/stmt.hpp"
+#include "resolver/resolver.hpp"
 #include "util/args_parser.hpp"
 #include "util/file_reader.hpp"
 #include "util/option.hpp"
@@ -34,15 +35,21 @@ int main(const int argc, char *argv[])
         if (lexer.has_errors())
             return EXIT_FAILURE;
 
-        tinyc::parser::Parser                     parser(lexer.tokens);
-        const std::vector<tinyc::parser::StmtPtr> statements = parser.parse();
+        tinyc::ast::Parser                     parser(lexer.tokens);
+        const std::vector<tinyc::ast::StmtPtr> statements = parser.parse();
         std::cout << "Parsing completed successfully.\n";
         for (const auto &stmt : statements)
-            tinyc::parser::ASTPrinter::print(stmt, std::cout, 0);
+            tinyc::ast::ASTPrinter::print(stmt, std::cout, 0);
 
-        tinyc::codegen::CodeGen codegen("tinyc_module");
-        codegen.generate(statements);
-        codegen.module->print(llvm::outs(), nullptr);
+        tinyc::resolver::Resolver resolver;
+        resolver.resolve(statements);
+        std::cout << "Resolving completed successfully.\n";
+
+        std::cout << "Resolver phases finished with : \n";
+        std::cout << "  " << resolver.symbol_tables.size() << " symbol tables\n";
+        std::cout << "  " << resolver.functions.size() << " functions\n";
+        std::cout << "  " << resolver.structs.size() << " structs\n";
+
         return EXIT_SUCCESS;
     } catch (const std::exception &e)
     {

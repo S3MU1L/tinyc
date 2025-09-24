@@ -19,14 +19,18 @@ add_executable(tinyc
         tinyc/src/lexer/lexer.hpp
         tinyc/src/lexer/lexer.cpp
         tinyc/src/util/option.hpp
-        tinyc/src/parser/expr.hpp
-        tinyc/src/parser/stmt.hpp
+        tinyc/src/ast/expr.hpp
+        tinyc/src/ast/stmt.hpp
         tinyc/src/parser/parser.hpp
         tinyc/src/parser/parser.cpp
-        tinyc/src/parser/ast_printer.hpp
-        tinyc/src/parser/ast_printer.hpp
+        tinyc/src/ast/ast_printer.hpp
+        tinyc/src/ast/ast_printer.hpp
         tinyc/src/codegen/codegen.hpp
         tinyc/src/codegen/codegen.cpp
+        tinyc/src/ast/expr.cpp
+        tinyc/src/ast/stmt.cpp
+        tinyc/src/resolver/resolver.hpp
+        tinyc/src/resolver/resolver.cpp
 )
 
 target_link_libraries(tinyc PRIVATE LLVM)

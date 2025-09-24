@@ -4,7 +4,7 @@
 #include <ostream>
 #include <string>
 
-namespace tinyc::parser {
+namespace tinyc::ast {
 
 struct ASTPrinter
 {
