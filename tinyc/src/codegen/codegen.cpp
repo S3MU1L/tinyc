@@ -12,4 +12,5 @@ std::unique_ptr<llvm::Module> modules;
 
 // This map keeps track of which values are defined in the current scope
 std::map<std::string, llvm::Value *> named_values;
-}
+
+} // namespace tinyc::codegen
