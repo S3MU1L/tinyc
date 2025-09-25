@@ -1,7 +1,7 @@
 #pragma once
 #include <string>
 
-namespace tinyc::util {
+namespace tinyc::common {
 struct Option
 {
     bool        help_mode;

@@ -4,7 +4,7 @@
 #include <stdexcept>
 #include <string>
 
-namespace tinyc::util {
+namespace tinyc::common {
 
 struct ArgsParser
 {

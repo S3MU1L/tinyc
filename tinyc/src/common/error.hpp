@@ -1,7 +1,7 @@
 #pragma once
 #include <stdexcept>
 
-namespace tinyc {
+namespace tinyc::common {
 struct ParseError final : std::runtime_error
 {
     explicit ParseError(const std::string &message)
