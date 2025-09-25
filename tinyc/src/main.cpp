@@ -3,52 +3,57 @@
 #include "ast/ast_printer.hpp"
 #include "parser/parser.hpp"
 #include "ast/stmt.hpp"
-#include "resolver/resolver.hpp"
-#include "util/args_parser.hpp"
-#include "util/file_reader.hpp"
-#include "util/option.hpp"
-
+#include "common/args_parser.hpp"
+#include "common/file_util.hpp"
+#include "common/option.hpp"
 #include <iostream>
+#include <memory>
 
 int main(const int argc, char *argv[])
 {
     std::cout << "Hello from tinyc!\n";
     try
     {
-        const tinyc::util::Option opt = tinyc::util::ArgsParser::parse(argc, argv);
-        tinyc::util::FileUtil::check_file(opt.input_file);
-        const std::string content = tinyc::util::FileUtil::read_file(opt.input_file);
-        std::cout << content << "\n";
+        const tinyc::common::Option opt = tinyc::common::ArgsParser::parse(argc, argv);
+        tinyc::common::FileUtil::check_file(opt.input_file);
+        const std::string content = tinyc::common::FileUtil::read_file(opt.input_file);
 
+        /* LEXING */
         tinyc::lexer::Lexer lexer(content);
         lexer.scan_tokens();
 
-        for (const auto &diags = lexer.get_diagnostics(); const auto &d : diags)
+        for (const auto &diags = lexer.get_diagnostics();
+             const auto &[level, message, line] : diags)
         {
-            const char *lvl = (d.level == tinyc::lexer::Lexer::Diagnostic::Level::Error)
+            const char *lvl = (level == tinyc::lexer::Lexer::Diagnostic::Level::Error)
                                   ? "error"
                                   : "warning";
-            std::cerr << lvl << ": " << opt.input_file << ":" << d.line << ": " << d.message <<
+            std::cerr << lvl << ": " << opt.input_file << ":" << line << ": " << message <<
                     "\n";
         }
 
         if (lexer.has_errors())
             return EXIT_FAILURE;
+        /* FINISHED LEXING */
 
+        /* PARSING */
         tinyc::ast::Parser                     parser(lexer.tokens);
         const std::vector<tinyc::ast::StmtPtr> statements = parser.parse();
-        std::cout << "Parsing completed successfully.\n";
         for (const auto &stmt : statements)
             tinyc::ast::ASTPrinter::print(stmt, std::cout, 0);
+        /* FINISHED PARSING */
 
-        tinyc::resolver::Resolver resolver;
-        resolver.resolve(statements);
-        std::cout << "Resolving completed successfully.\n";
+        /* CODEGEN */
+        tinyc::codegen::modules = std::make_unique<llvm::Module>(
+                tinyc::common::FileUtil::get_file_name(opt.input_file), tinyc::codegen::context);
 
-        std::cout << "Resolver phases finished with : \n";
-        std::cout << "  " << resolver.symbol_tables.size() << " symbol tables\n";
-        std::cout << "  " << resolver.functions.size() << " functions\n";
-        std::cout << "  " << resolver.structs.size() << " structs\n";
+        for (const auto &stmt : statements)
+            if (stmt)
+                stmt->codegen();
+
+        if (tinyc::codegen::modules)
+            tinyc::common::FileUtil::writeLLVMFiles(*tinyc::codegen::modules, opt.output_file);
+        /* FINISHED CODEGEN */
 
         return EXIT_SUCCESS;
     } catch (const std::exception &e)

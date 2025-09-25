@@ -3,7 +3,7 @@
 #include <iostream>
 #include <utility>
 
-#include "../util/error.hpp"
+#include "../common/error.hpp"
 
 namespace tinyc::ast {
 
@@ -123,7 +123,7 @@ void Parser::error(const lexer::Token &tok, const char *message)
     const std::string where = tok.type == TT::END_OF_FILE
                                   ? " at end"
                                   : (" at '" + tok.lexeme + "'");
-    throw ParseError(std::string("[line ") + std::to_string(tok.line) + "] Parse error" +
+    throw common::ParseError(std::string("[line ") + std::to_string(tok.line) + "] Parse error" +
                      where + ": " + message);
 }
 
