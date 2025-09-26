@@ -1,4 +1,5 @@
 ** TinyC EBNF
+
 ```{ebnf}
 program ::= { top_level } ;
 
@@ -45,6 +46,8 @@ statement ::= expression_statement
 | selection_statement
 | iteration_statement
 | jump_statement
+| print_statement ;
+| assert_statement ;
 | ";" ;
 
 expression_statement ::= [ expression ] ";" ;
@@ -55,6 +58,10 @@ iteration_statement ::= "while" "(" expression ")" statement
 | "for" "(" [ expression ] ";" [ expression ] ";" [ expression ] ")" statement ;
 
 jump_statement ::= "return" [ expression ] ";" ;
+
+print_statement ::= "print" "(" expression ")" ";" ;
+
+assert_statement ::= "assert" "(" expression ")" ";" ;
 
 expression ::= assignment_expression ;
 
