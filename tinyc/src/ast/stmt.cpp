@@ -365,4 +365,63 @@ llvm::Value *StructDeclStmt::codegen()
     // structs are not supported in codegen yet
     return nullptr;
 }
+
+AssertStmt::AssertStmt(ExprPtr c) : condition(std::move(c))
+{
+}
+
+llvm::Value *AssertStmt::codegen()
+{
+    // require insertion point and condition
+    llvm::BasicBlock *insertBB = codegen::builder.GetInsertBlock();
+    if (!insertBB || !condition || !codegen::modules)
+        return nullptr;
+
+    llvm::Function *fn = insertBB->getParent();
+    if (!fn)
+        return nullptr;
+
+    // evaluate condition
+    llvm::Value *condv = condition->codegen();
+    if (!condv)
+        return nullptr;
+
+    // convert to boolean: condv != 0
+    llvm::Value *cond = codegen::builder.CreateICmpNE(
+            condv, llvm::ConstantInt::get(codegen::context, llvm::APInt(32, 0)),
+            "assertcond");
+
+    // create blocks for ok / fail
+    llvm::BasicBlock *okBB   = llvm::BasicBlock::Create(codegen::context, "assert.ok", fn);
+    llvm::BasicBlock *failBB = llvm::BasicBlock::Create(codegen::context, "assert.fail", fn);
+
+    codegen::builder.CreateCondBr(cond, okBB, failBB);
+
+    // failure block: print message and abort
+    codegen::builder.SetInsertPoint(failBB);
+
+    // message
+    llvm::Value *msg = codegen::builder.CreateGlobalStringPtr("Assertion failed\n", "assert.msg");
+
+    // declare and call puts(const char*)
+    llvm::FunctionType *putsTy = llvm::FunctionType::get(
+            llvm::Type::getInt32Ty(codegen::context),
+            {llvm::Type::getInt8Ty(codegen::context)},
+            false);
+    llvm::FunctionCallee putsF = codegen::modules->getOrInsertFunction("puts", putsTy);
+    codegen::builder.CreateCall(putsF, {msg});
+
+    // declare and call abort()
+    llvm::FunctionType *abortTy = llvm::FunctionType::get(llvm::Type::getVoidTy(codegen::context),
+                                                          false);
+    llvm::FunctionCallee abortF = codegen::modules->getOrInsertFunction("abort", abortTy);
+    codegen::builder.CreateCall(abortF, {});
+
+    // mark unreachable after abort
+    codegen::builder.CreateUnreachable();
+
+    // continue at ok block
+    codegen::builder.SetInsertPoint(okBB);
+    return nullptr;
+}
 }

@@ -333,6 +333,14 @@ StmtPtr Parser::statement()
         current--;
         return compound_statement();
     }
+    if (match(TT::ASSERT))
+    {
+        consume(TT::LPAREN, "expected '(' after assert");
+        ExprPtr cond = expression();
+        consume(TT::RPAREN, "expected ')' after assert condition");
+        consume(TT::SEMICOLON, "expected ';' after assert statement");
+        return std::make_unique<AssertStmt>(std::move(cond));
+    }
 
     if (match(TT::SEMICOLON))
         return nullptr;

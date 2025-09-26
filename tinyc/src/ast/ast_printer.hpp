@@ -107,7 +107,7 @@ inline void ASTPrinter::print(const StmtPtr &stmt, std::ostream &out, int indent
         out << "\n";
         print_indent(out, indent + 1);
         out << "Body:\n";
-        for (const auto& stmt : s->body->statements)
+        for (const auto &stmt : s->body->statements)
             print(stmt, out, indent + 2);
     }
     else if (auto s = dynamic_cast<StructDeclStmt *>(stmt.get()))
@@ -181,6 +181,14 @@ inline void ASTPrinter::print(const ExprPtr &expr, std::ostream &out, int indent
         out << "Arguments:\n";
         for (const auto &arg : e->arguments)
             print(arg, out, indent + 2);
+    }
+    else if (auto e = dynamic_cast<AssertStmt *>(expr.get()))
+    {
+        print_indent(out, indent);
+        out << "AssertStmt\n";
+        print_indent(out, indent + 1);
+        out << "Condition:\n";
+        print(e->condition, out, indent + 2);
     }
     else
     {
