@@ -16,7 +16,9 @@ static const std::unordered_map<std::string, TokenType> keywords = {
         {"for", TokenType::FOR}, {"return", TokenType::RETURN}, {"struct", TokenType::STRUCT},
         {"int", TokenType::INT}, {"char", TokenType::CHAR}, {"bool", TokenType::BOOL},
         {"unsigned", TokenType::UNSIGNED}, {"true", TokenType::TRUE},
-        {"false", TokenType::FALSE}, {"nullptr", TokenType::NULLPTR},
+        {"false", TokenType::FALSE}, {"nullptr", TokenType::NULLPTR}, {"print", TokenType::PRINT},
+        {"break", TokenType::BREAK}, {"continue", TokenType::CONTINUE}, {"do", TokenType::DO},
+        {"assert", TokenType::ASSERT}
 };
 
 Lexer::Lexer(std::string content) : content(std::move(content))
@@ -357,16 +359,17 @@ void Lexer::number_literal()
 
     if (is_unsigned)
     {
-        unsigned long long value = 0;
-        const auto res = std::from_chars(digits_sv.data(), digits_sv.data() + digits_sv.size(),
-                                         value,
-                                         base);
-        if (res.ec == std::errc::result_out_of_range)
+        unsigned long long value     = 0;
+        const auto         [ptr, ec] = std::from_chars(digits_sv.data(),
+                                               digits_sv.data() + digits_sv.size(),
+                                               value,
+                                               base);
+        if (ec == std::errc::result_out_of_range)
         {
             error(std::string("Unsigned integer literal out of range: ") + std::string(digits_sv));
             value = std::numeric_limits<unsigned long long>::max();
         }
-        else if (res.ptr != digits_sv.data() + digits_sv.size())
+        else if (ptr != digits_sv.data() + digits_sv.size())
         {
             error(std::string("Invalid digits in unsigned integer literal: ") + std::string(
                           digits_sv));
@@ -419,7 +422,6 @@ void Lexer::number_literal()
         add_token(TokenType::INT_LITERAL, Literal{value});
     }
 }
-
 
 void Lexer::warn(const std::string &msg)
 {

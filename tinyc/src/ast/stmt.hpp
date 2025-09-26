@@ -8,7 +8,6 @@
 #include <vector>
 
 namespace tinyc::ast {
-
 struct Stmt
 {
     virtual              ~Stmt() = default;
@@ -99,6 +98,14 @@ struct StructDeclStmt final : Stmt
     std::vector<VarDeclStmt> fields;
 
     StructDeclStmt(lexer::Token n, std::vector<VarDeclStmt> f);
+    llvm::Value *codegen() override;
+};
+
+struct AssertStmt final : Stmt
+{
+    ExprPtr condition;
+
+    explicit     AssertStmt(ExprPtr c);
     llvm::Value *codegen() override;
 };
 }

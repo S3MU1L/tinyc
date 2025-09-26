@@ -23,7 +23,7 @@ enum class TokenType
 
     /* Keywords */
     IF, FOR, ELSE, WHILE, RETURN, BREAK, CONTINUE, DO,
-    STRUCT, INT, CHAR, BOOL, UNSIGNED,
+    STRUCT, INT, CHAR, BOOL, UNSIGNED, PRINT, ASSERT,
 
     END_OF_FILE,
 };
