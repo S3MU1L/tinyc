@@ -60,7 +60,7 @@ llvm::Value *IfStmt::codegen()
     llvm::Value *cond = codegen::builder.CreateICmpNE(
             condv, llvm::ConstantInt::get(codegen::context, llvm::APInt(32, 0)), "ifcond");
 
-    llvm::Function *  fn      = tinyc::codegen::builder.GetInsertBlock()->getParent();
+    llvm::Function *  fn      = codegen::builder.GetInsertBlock()->getParent();
     llvm::BasicBlock *thenBB  = llvm::BasicBlock::Create(codegen::context, "then", fn);
     llvm::BasicBlock *elseBB  = llvm::BasicBlock::Create(codegen::context, "else", fn);
     llvm::BasicBlock *mergeBB = llvm::BasicBlock::Create(codegen::context, "ifcont", fn);
@@ -68,7 +68,7 @@ llvm::Value *IfStmt::codegen()
     tinyc::codegen::builder.CreateCondBr(cond, thenBB, elseBB);
 
     // then
-    tinyc::codegen::builder.SetInsertPoint(thenBB);
+    codegen::builder.SetInsertPoint(thenBB);
     if (then_branch)
         then_branch->codegen();
     if (!codegen::builder.GetInsertBlock()->getTerminator())

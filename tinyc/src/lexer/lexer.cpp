@@ -38,8 +38,7 @@ void Lexer::scan_tokens()
 
 void Lexer::scan_token()
 {
-    char c = advance();
-    switch (c)
+    switch (const char c = advance())
     {
     case '(':
         add_token(TokenType::LPAREN, {});
@@ -63,11 +62,7 @@ void Lexer::scan_token()
         add_token(TokenType::COMMA, {});
         break;
     case '.':
-        // ellipsis '...'
-        if (match('.') && match('.'))
-            add_token(TokenType::ELLIPSIS, {});
-        else
-            add_token(TokenType::DOT, {});
+        add_token(TokenType::DOT, {});
         break;
     case '-':
         if (match('>'))
@@ -180,7 +175,6 @@ void Lexer::scan_token()
         }
         if (match('*'))
         {
-            // A block comment goes until the closing */
             while (!(peek() == '*' && current + 1 < content.size() && content[current + 1] == '/')
                    && !is_end())
             {
@@ -190,8 +184,8 @@ void Lexer::scan_token()
             }
             if (!is_end())
             {
-                advance(); // consume '*'
-                advance(); // consume '/'
+                advance();
+                advance();
             }
             break;
         }
@@ -274,7 +268,6 @@ void Lexer::add_token(const TokenType type, const Literal &literal)
     tokens.push_back(Token{type, literal, lexeme, line});
 }
 
-
 bool Lexer::is_alpha(const char c)
 {
     return c == '_' || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
@@ -305,12 +298,12 @@ void Lexer::number_literal()
         if (peek() == 'x' || peek() == 'X')
         {
             base = 16;
-            advance(); // consume 'x'
+            advance();
         }
         else if (peek() == 'b' || peek() == 'B')
         {
             base = 2;
-            advance(); // consume 'b'
+            advance();
         }
         else if (isdigit(peek()))
         {
@@ -319,8 +312,8 @@ void Lexer::number_literal()
     }
     while (true)
     {
-        char p  = peek();
-        bool ok = false;
+        const char p  = peek();
+        bool       ok = false;
         if (base == 16)
             ok = is_hex_digit(p);
         else if (base == 10)
@@ -329,7 +322,6 @@ void Lexer::number_literal()
             ok = p >= '0' && p <= '7';
         else
             ok = p == '0' || p == '1';
-
         if (ok)
             advance();
         else
@@ -351,11 +343,11 @@ void Lexer::number_literal()
     else if (base == 8 && content[start] == '0')
         prefix_len = 1;
 
-    size_t           digits_start = start + prefix_len;
-    size_t           digits_end   = current - (is_unsigned ? 1 : 0);
-    const char *     digits_ptr   = content.data() + digits_start;
-    std::size_t      digits_len   = digits_end - digits_start;
-    std::string_view digits_sv(digits_ptr, digits_len);
+    const size_t           digits_start = start + prefix_len;
+    const size_t           digits_end   = current - (is_unsigned ? 1 : 0);
+    const char *           digits_ptr   = content.data() + digits_start;
+    const std::size_t      digits_len   = digits_end - digits_start;
+    const std::string_view digits_sv(digits_ptr, digits_len);
 
     if (is_unsigned)
     {
@@ -382,15 +374,16 @@ void Lexer::number_literal()
         // parse into unsigned first if base > 10 to avoid sign issues, then check range
         if (base == 10)
         {
-            const auto res = std::from_chars(digits_sv.data(), digits_sv.data() + digits_sv.size(),
-                                             value,
-                                             base);
-            if (res.ec == std::errc::result_out_of_range)
+            const auto [ptr, ec] = std::from_chars(digits_sv.data(),
+                                                   digits_sv.data() + digits_sv.size(),
+                                                   value,
+                                                   base);
+            if (ec == std::errc::result_out_of_range)
             {
                 error(std::string("Integer literal out of range: ") + std::string(digits_sv));
                 value = std::numeric_limits<long long>::max();
             }
-            else if (res.ptr != digits_sv.data() + digits_sv.size())
+            else if (ptr != digits_sv.data() + digits_sv.size())
             {
                 error(std::string("Invalid digits in integer literal: ") + std::string(digits_sv));
             }
@@ -399,14 +392,14 @@ void Lexer::number_literal()
         }
         // hex, oct, bin -> parse as unsigned and then clamp to signed max
         unsigned long long uvalue = 0;
-        auto res = std::from_chars(digits_sv.data(), digits_sv.data() + digits_sv.size(),
-                                   uvalue, base);
-        if (res.ec == std::errc::result_out_of_range)
+        auto [ptr, ec] = std::from_chars(digits_sv.data(), digits_sv.data() + digits_sv.size(),
+                                         uvalue, base);
+        if (ec == std::errc::result_out_of_range)
         {
             error(std::string("Integer literal out of range: ") + std::string(digits_sv));
             value = std::numeric_limits<long long>::max();
         }
-        else if (res.ptr != digits_sv.data() + digits_sv.size())
+        else if (ptr != digits_sv.data() + digits_sv.size())
             error(std::string("Invalid digits in integer literal: ") + std::string(digits_sv));
         else
         {
@@ -435,16 +428,15 @@ void Lexer::error(const std::string &msg)
 
 bool Lexer::has_errors() const
 {
-    return std::any_of(diagnostics.begin(), diagnostics.end(), [](const Diagnostic &d) {
+    return std::ranges::any_of(diagnostics, [](const Diagnostic &d) {
         return d.level == Diagnostic::Level::Error;
     });
 }
 
 bool Lexer::has_warnings() const
 {
-    return std::any_of(diagnostics.begin(), diagnostics.end(), [](const Diagnostic &d) {
+    return std::ranges::any_of(diagnostics, [](const Diagnostic &d) {
         return d.level == Diagnostic::Level::Warning;
     });
 }
-
 }
