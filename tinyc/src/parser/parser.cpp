@@ -124,7 +124,7 @@ void Parser::error(const lexer::Token &tok, const char *message)
                                   ? " at end"
                                   : (" at '" + tok.lexeme + "'");
     throw common::ParseError(std::string("[line ") + std::to_string(tok.line) + "] Parse error" +
-                     where + ": " + message);
+                             where + ": " + message);
 }
 
 bool Parser::is_type_specifier() const
@@ -151,7 +151,22 @@ StmtPtr Parser::top_level()
     if (check(TT::STRUCT))
         return struct_declaration();
 
-    if (is_type_specifier())
+    const int save        = current;
+    bool      seen_lparen = false;
+    while (!is_end())
+    {
+        if (check(TT::LPAREN))
+        {
+            seen_lparen = true;
+            break;
+        }
+        if (check(TT::SEMICOLON) || check(TT::LBRACE))
+            break;
+        advance();
+    }
+
+    current = save;
+    if (seen_lparen)
         return function_definition();
 
     return declaration();
@@ -161,10 +176,7 @@ StmtPtr Parser::declaration()
 {
     if (is_type_specifier())
     {
-        const size_t save    = current;
-        lexer::Token typeTok = parse_type_specifier();
-        current              = static_cast<int>(save);
-        typeTok              = parse_type_specifier();
+        const lexer::Token typeTok = parse_type_specifier();
         return var_declaration(typeTok);
     }
     return statement();
@@ -172,7 +184,7 @@ StmtPtr Parser::declaration()
 
 StmtPtr Parser::function_definition()
 {
-    lexer::Token typeTok = parse_type_specifier();
+    lexer::Token       typeTok = parse_type_specifier();
     const lexer::Token nameTok = advance();
     if (nameTok.type != TT::IDENTIFIER)
         error(nameTok, "expected function name");

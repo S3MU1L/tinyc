@@ -39,18 +39,22 @@ int main(const int argc, char *argv[])
         /* PARSING */
         tinyc::ast::Parser                     parser(lexer.tokens);
         const std::vector<tinyc::ast::StmtPtr> statements = parser.parse();
-        for (const auto &stmt : statements)
-            tinyc::ast::ASTPrinter::print(stmt, std::cout, 0);
         /* FINISHED PARSING */
 
+        std::cout << "codegen\n";
+        std::cout << statements.size() << '\n';
         /* CODEGEN */
         tinyc::codegen::modules = std::make_unique<llvm::Module>(
                 tinyc::common::FileUtil::get_file_name(opt.input_file), tinyc::codegen::context);
 
         for (const auto &stmt : statements)
+        {
+            if (!stmt)
+                continue;
+            tinyc::ast::ASTPrinter::print(stmt, std::cout, 0);
             if (stmt)
                 stmt->codegen();
-
+        }
         if (tinyc::codegen::modules)
             tinyc::common::FileUtil::writeLLVMFiles(*tinyc::codegen::modules, opt.output_file);
         /* FINISHED CODEGEN */

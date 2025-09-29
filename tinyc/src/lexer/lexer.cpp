@@ -15,8 +15,8 @@ static const std::unordered_map<std::string, TokenType> keywords = {
         {"if", TokenType::IF}, {"else", TokenType::ELSE}, {"while", TokenType::WHILE},
         {"for", TokenType::FOR}, {"return", TokenType::RETURN}, {"struct", TokenType::STRUCT},
         {"int", TokenType::INT}, {"char", TokenType::CHAR}, {"bool", TokenType::BOOL},
-        {"unsigned", TokenType::UNSIGNED}, {"true", TokenType::TRUE},
-        {"false", TokenType::FALSE}, {"nullptr", TokenType::NULLPTR}, {"print", TokenType::PRINT},
+        {"unsigned", TokenType::UNSIGNED}, {"true", TokenType::TRUE},{"false", TokenType::FALSE},
+        {"NULL", TokenType::NULLPTR}, {"print", TokenType::PRINT},
         {"break", TokenType::BREAK}, {"continue", TokenType::CONTINUE}, {"do", TokenType::DO},
         {"assert", TokenType::ASSERT}
 };
