@@ -11,7 +11,6 @@
 
 int main(const int argc, char *argv[])
 {
-    std::cout << "Hello from tinyc!\n";
     try
     {
         const tinyc::common::Option opt = tinyc::common::ArgsParser::parse(argc, argv);
@@ -39,10 +38,12 @@ int main(const int argc, char *argv[])
         /* PARSING */
         tinyc::ast::Parser                     parser(lexer.tokens);
         const std::vector<tinyc::ast::StmtPtr> statements = parser.parse();
+        for (const auto &stmt : statements)
+            tinyc::ast::ASTPrinter::print(stmt, std::cout, 0);
         /* FINISHED PARSING */
 
-        std::cout << "codegen\n";
-        std::cout << statements.size() << '\n';
+
+        std::cout << "the size of statements is: " <<  statements.size() << '\n';
         /* CODEGEN */
         tinyc::codegen::modules = std::make_unique<llvm::Module>(
                 tinyc::common::FileUtil::get_file_name(opt.input_file), tinyc::codegen::context);
