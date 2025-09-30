@@ -83,6 +83,33 @@ llvm::Value *UnaryExpr::codegen()
     }
     case lexer::TokenType::TILDE:
         return codegen::builder.CreateNot(operand, "bitnottmp");
+    case lexer::TokenType::PLUS_PLUS:
+    case lexer::TokenType::MINUS_MINUS: {
+        if (const auto *var = dynamic_cast<VariableExpr *>(right.get()))
+        {
+            const auto it = codegen::named_values.find(var->name.lexeme);
+            if (it == codegen::named_values.end())
+                return nullptr;
+
+            // load current value
+            llvm::Value *loaded = codegen::builder.CreateLoad(
+                    llvm::Type::getInt32Ty(codegen::context), it->second,
+                    var->name.lexeme + ".load");
+            // create one
+            llvm::Value *one = llvm::ConstantInt::get(codegen::context, llvm::APInt(32, 1));
+            llvm::Value *res = nullptr;
+            if (op.type == lexer::TokenType::PLUS_PLUS)
+                res = codegen::builder.CreateAdd(loaded, one, "inctmp");
+            else
+                res = codegen::builder.CreateSub(loaded, one, "dectmp");
+
+            // store back and return new value
+            codegen::builder.CreateStore(res, it->second);
+            return res;
+        }
+        // unsupported lvalue form for ++/--
+        return nullptr;
+    }
     default:
         break;
     }
@@ -120,12 +147,12 @@ llvm::Value *BinaryExpr::codegen()
                 cmp, llvm::Type::getInt32Ty(tinyc::codegen::context), "booleq");
     }
     case lexer::TokenType::BANG_EQUAL: {
-        auto *cmp = tinyc::codegen::builder.CreateICmpNE(lhs, rhs, "cmpne");
-        return tinyc::codegen::builder.CreateZExt(
-                cmp, llvm::Type::getInt32Ty(tinyc::codegen::context), "boolne");
+        auto *cmp = codegen::builder.CreateICmpNE(lhs, rhs, "cmpne");
+        return codegen::builder.CreateZExt(
+                cmp, llvm::Type::getInt32Ty(codegen::context), "boolne");
     }
     case lexer::TokenType::LESS: {
-        auto *cmp = tinyc::codegen::builder.CreateICmpSLT(lhs, rhs, "cmplt");
+        auto *cmp = codegen::builder.CreateICmpSLT(lhs, rhs, "cmplt");
         return codegen::builder.CreateZExt(
                 cmp, llvm::Type::getInt32Ty(codegen::context), "boollt");
     }

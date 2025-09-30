@@ -53,12 +53,12 @@ struct WhileStmt final : Stmt
 
 struct ForStmt final : Stmt
 {
-    ExprPtr init;
+    StmtPtr init; // can be VarDeclStmt or ExprStmt or nullptr
     ExprPtr cond;
     ExprPtr incr;
     StmtPtr body;
 
-    ForStmt(ExprPtr i, ExprPtr c, ExprPtr r, StmtPtr b);
+    ForStmt(StmtPtr i, ExprPtr c, ExprPtr r, StmtPtr b);
     llvm::Value *codegen() override;
 };
 

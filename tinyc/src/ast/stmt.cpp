@@ -122,7 +122,7 @@ llvm::Value *WhileStmt::codegen()
     return nullptr;
 }
 
-ForStmt::ForStmt(ExprPtr i, ExprPtr c, ExprPtr r, StmtPtr b) : init(std::move(i)),
+ForStmt::ForStmt(StmtPtr i, ExprPtr c, ExprPtr r, StmtPtr b) : init(std::move(i)),
                                                                cond(std::move(c)),
                                                                incr(std::move(r)),
                                                                body(std::move(b))
@@ -131,6 +131,8 @@ ForStmt::ForStmt(ExprPtr i, ExprPtr c, ExprPtr r, StmtPtr b) : init(std::move(i)
 
 llvm::Value *ForStmt::codegen()
 {
+    auto saved_named = codegen::named_values;
+
     if (init)
         init->codegen();
 
@@ -156,7 +158,7 @@ llvm::Value *ForStmt::codegen()
         llvm::Value *c = codegen::builder.CreateICmpNE(
                 condv, llvm::ConstantInt::get(codegen::context, llvm::APInt(32, 0)),
                 "forcond");
-        tinyc::codegen::builder.CreateCondBr(c, bodyBB, endBB);
+        codegen::builder.CreateCondBr(c, bodyBB, endBB);
     }
 
     codegen::builder.SetInsertPoint(bodyBB);
@@ -171,6 +173,9 @@ llvm::Value *ForStmt::codegen()
     codegen::builder.CreateBr(condBB);
 
     codegen::builder.SetInsertPoint(endBB);
+
+    codegen::named_values = std::move(saved_named);
+
     return nullptr;
 }
 
@@ -199,17 +204,13 @@ VarDeclStmt::VarDeclStmt(lexer::Token t, lexer::Token n, ExprPtr init) :
 
 llvm::Value *VarDeclStmt::codegen()
 {
-    // Determine whether we're inside a function by checking the IRBuilder insertion block
     llvm::Function *fn = nullptr;
     if (codegen::builder.GetInsertBlock())
         fn = codegen::builder.GetInsertBlock()->getParent();
 
-    // If we're inside a function, create an alloca in entry block
     if (fn)
     {
-        // If an alloca already exists (preallocated by function codegen), just store initializer
-        auto it = codegen::named_values.find(name.lexeme);
-        if (it == codegen::named_values.end())
+        if (auto it = codegen::named_values.find(name.lexeme); it == codegen::named_values.end())
         {
             llvm::AllocaInst *alloca           = create_entry_block_alloca(fn, name.lexeme);
             codegen::named_values[name.lexeme] = alloca;
@@ -229,7 +230,6 @@ llvm::Value *VarDeclStmt::codegen()
         }
         else
         {
-            // already allocated (e.g., by FunctionDeclStmt preallocation) -> just initialize
             if (initializer)
             {
                 llvm::Value *v = initializer->codegen();
@@ -241,7 +241,6 @@ llvm::Value *VarDeclStmt::codegen()
         return nullptr;
     }
 
-    // Global variable: create a global in the module
     if (!codegen::modules)
         return nullptr;
 
@@ -315,27 +314,22 @@ llvm::Value *FunctionDeclStmt::codegen()
         ++idx;
     }
 
-    // create entry block and start generating
     llvm::BasicBlock *bb = llvm::BasicBlock::Create(codegen::context, "entry", function);
     llvm::IRBuilder<>::InsertPointGuard guard(codegen::builder); // restore later
     codegen::builder.SetInsertPoint(bb);
 
-    // backup named_values and clear for function scope
     auto saved_named = codegen::named_values;
     codegen::named_values.clear();
 
-    // Preallocate allocas for parameters (no resolver) - allocate an alloca for each parameter and store incoming value
     size_t p = 0;
     for (auto &arg : function->args())
     {
         llvm::AllocaInst *alloca = create_entry_block_alloca(function, arg.getName().str());
-        // store the actual argument value into the alloca
         codegen::builder.CreateStore(&arg, alloca);
         codegen::named_values[arg.getName().str()] = alloca;
         ++p;
     }
 
-    // generate body
     if (body)
         body->codegen();
 
