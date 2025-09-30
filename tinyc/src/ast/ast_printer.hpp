@@ -12,14 +12,14 @@ struct ASTPrinter
     static void print(const ExprPtr &expr, std::ostream &out, int indent = 0);
 
 private:
-    static void print_indent(std::ostream &out, int indent)
+    static void print_indent(std::ostream &out, const int indent)
     {
         for (int i = 0; i < indent; ++i)
             out << "  ";
     }
 };
 
-inline void ASTPrinter::print(const StmtPtr &stmt, std::ostream &out, int indent)
+inline void ASTPrinter::print(const StmtPtr &stmt, std::ostream &out, const int indent)
 {
     if (!stmt)
     {
@@ -27,7 +27,7 @@ inline void ASTPrinter::print(const StmtPtr &stmt, std::ostream &out, int indent
         out << "NullStmt\n";
         return;
     }
-    if (auto s = dynamic_cast<ExprStmt *>(stmt.get()))
+    if (const auto s = dynamic_cast<ExprStmt *>(stmt.get()))
     {
         print_indent(out, indent);
         out << "ExprStmt\n";
@@ -122,6 +122,14 @@ inline void ASTPrinter::print(const StmtPtr &stmt, std::ostream &out, int indent
                 print(f.initializer, out, indent + 2);
         }
     }
+    else if (auto s = dynamic_cast<AssertStmt *>(stmt.get()))
+    {
+        print_indent(out, indent);
+        out << "AssertStmt\n";
+        print_indent(out, indent + 1);
+        out << "Condition:\n";
+        print(s->condition, out, indent + 2);
+    }
     else
     {
         print_indent(out, indent);
@@ -129,7 +137,7 @@ inline void ASTPrinter::print(const StmtPtr &stmt, std::ostream &out, int indent
     }
 }
 
-inline void ASTPrinter::print(const ExprPtr &expr, std::ostream &out, int indent)
+inline void ASTPrinter::print(const ExprPtr &expr, std::ostream &out, const int indent)
 {
     if (!expr)
     {
@@ -181,14 +189,6 @@ inline void ASTPrinter::print(const ExprPtr &expr, std::ostream &out, int indent
         out << "Arguments:\n";
         for (const auto &arg : e->arguments)
             print(arg, out, indent + 2);
-    }
-    else if (auto e = dynamic_cast<AssertStmt *>(expr.get()))
-    {
-        print_indent(out, indent);
-        out << "AssertStmt\n";
-        print_indent(out, indent + 1);
-        out << "Condition:\n";
-        print(e->condition, out, indent + 2);
     }
     else
     {
