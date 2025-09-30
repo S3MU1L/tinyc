@@ -1,10 +1,12 @@
 #include "parser.hpp"
 
-#include <iostream>
 #include <utility>
 
 #include "../common/error.hpp"
 
+#include <iostream>
+
+// TODO: add parser diagnosticts
 namespace tinyc::ast {
 
 using TT = lexer::TokenType;
@@ -56,7 +58,7 @@ lexer::Token Parser::previous() const
     return tokens[current - 1];
 }
 
-lexer::Token Parser::consume(lexer::TokenType type, const char *message)
+lexer::Token Parser::consume(const lexer::TokenType type, const char *message)
 {
     if (check(type))
         return advance();
@@ -87,6 +89,7 @@ std::vector<StmtPtr> Parser::parse()
                 stmts.push_back(std::move(t));
     } catch (const std::runtime_error &e)
     {
+        std::cout << e.what() << '\n';
         synchronize();
     }
     return stmts;
@@ -106,7 +109,6 @@ void Parser::synchronize()
         case TT::RETURN:
         case TT::STRUCT:
         case TT::INT:
-        // TODO: we don't probably need to have char/bool
         case TT::CHAR:
         case TT::BOOL:
         case TT::UNSIGNED:
@@ -118,12 +120,12 @@ void Parser::synchronize()
     }
 }
 
-void Parser::error(const lexer::Token &tok, const char *message)
+void Parser::error(const lexer::Token &peek, const char *message)
 {
-    const std::string where = tok.type == TT::END_OF_FILE
+    const std::string where = peek.type == TT::END_OF_FILE
                                   ? " at end"
-                                  : (" at '" + tok.lexeme + "'");
-    throw common::ParseError(std::string("[line ") + std::to_string(tok.line) + "] Parse error" +
+                                  : (" at '" + peek.lexeme + "'");
+    throw common::ParseError(std::string("[line ") + std::to_string(peek.line) + "] Parse error" +
                              where + ": " + message);
 }
 
@@ -172,20 +174,115 @@ StmtPtr Parser::top_level()
     return declaration();
 }
 
+StmtPtr Parser::init_declarator_list(const lexer::Token &type)
+{
+    std::vector<StmtPtr> decls;
+    while (true)
+    {
+        lexer::Token nameTok = consume(TT::IDENTIFIER, "expected identifier in declaration");
+        ExprPtr      init{};
+        if (match(TT::EQUAL))
+            init = initializer();
+        decls.push_back(std::make_unique<VarDeclStmt>(type, nameTok, std::move(init)));
+        if (!match(TT::COMMA))
+            break;
+    }
+
+    if (decls.size() == 1)
+        return std::move(decls.front());
+    return std::make_unique<CompoundStmt>(std::move(decls));
+}
+
+StmtPtr Parser::declarator()
+{
+    // TODO: ADD pointer, array, function declarators
+    lexer::Token nameTok = consume(TT::IDENTIFIER, "expected declarator");
+    return std::make_unique<VarDeclStmt>(lexer::Token{TT::INT, {}, "int", 0}, nameTok, nullptr);
+}
+
+StmtPtr Parser::direct_declarator(StmtPtr base)
+{
+    return base;
+}
+
+std::vector<StmtPtr> Parser::parameter_list()
+{
+    std::vector<StmtPtr> params;
+    while (true)
+    {
+        if (!is_type_specifier())
+            error(peek(), "expected parameter type");
+        lexer::Token ptype = parse_type_specifier();
+        lexer::Token pname = consume(TT::IDENTIFIER, "expected parameter name");
+        params.push_back(std::make_unique<VarDeclStmt>(ptype, pname, nullptr));
+        if (!match(TT::COMMA))
+            break;
+    }
+    return params;
+}
+
+std::vector<lexer::Token> Parser::identifier_list()
+{
+    std::vector<lexer::Token> ids;
+    while (true)
+    {
+        lexer::Token id = consume(TT::IDENTIFIER, "expected identifier");
+        ids.push_back(id);
+        if (!match(TT::COMMA))
+            break;
+    }
+    return ids;
+}
+
+std::vector<ExprPtr> Parser::initializer_list()
+{
+    std::vector<ExprPtr> inits;
+    while (true)
+    {
+        ExprPtr init_expr = expression();
+        inits.push_back(std::move(init_expr));
+        if (!match(TT::COMMA))
+            break;
+    }
+    return inits;
+}
+
+ExprPtr Parser::initializer()
+{
+    if (match(TT::LBRACE))
+    {
+        std::vector<ExprPtr> inits;
+        if (!check(TT::RBRACE))
+        {
+            while (true)
+            {
+                ExprPtr e = expression();
+                inits.push_back(std::move(e));
+                if (!match(TT::COMMA))
+                    break;
+            }
+        }
+        consume(TT::RBRACE, "expected '}' after initializer list");
+        return nullptr;
+    }
+    ExprPtr e = expression();
+    return e;
+}
+
 StmtPtr Parser::declaration()
 {
-    if (is_type_specifier())
-    {
-        const lexer::Token typeTok = parse_type_specifier();
-        return var_declaration(typeTok);
-    }
-    return statement();
+    const lexer::Token typeTok = parse_type_specifier();
+    StmtPtr            decl    = init_declarator_list(typeTok);
+    consume(TT::SEMICOLON, "expected ';' after declaration");
+    return decl;
 }
 
 StmtPtr Parser::function_definition()
 {
+    std::cout << "function definition\n";
     lexer::Token       typeTok = parse_type_specifier();
     const lexer::Token nameTok = advance();
+
     if (nameTok.type != TT::IDENTIFIER)
         error(nameTok, "expected function name");
 
@@ -280,8 +377,7 @@ std::unique_ptr<CompoundStmt> Parser::compound_statement()
         }
         else
         {
-            StmtPtr s = statement();
-            if (s)
+            if (StmtPtr s = statement())
                 body.push_back(std::move(s));
         }
     }
@@ -316,10 +412,27 @@ StmtPtr Parser::statement()
     if (match(TT::FOR))
     {
         consume(TT::LPAREN, "expected '('");
-        ExprPtr init;
+        StmtPtr initStmt;
         if (!check(TT::SEMICOLON))
-            init = expression();
-        consume(TT::SEMICOLON, "expected ';' after for-init");
+        {
+            if (is_type_specifier())
+            {
+                const lexer::Token t = parse_type_specifier();
+                initStmt = init_declarator_list(t);
+                consume(TT::SEMICOLON, "expected ';' after for-init declaration");
+            }
+            else
+            {
+                ExprPtr initExpr = expression();
+                consume(TT::SEMICOLON, "expected ';' after for-init");
+                initStmt = std::make_unique<ExprStmt>(std::move(initExpr));
+            }
+        }
+        else
+        {
+            consume(TT::SEMICOLON, "expected ';' after for-init");
+        }
+
         ExprPtr cond;
         if (!check(TT::SEMICOLON))
             cond = expression();
@@ -329,7 +442,7 @@ StmtPtr Parser::statement()
             incr = expression();
         consume(TT::RPAREN, "expected ')' after for-clause");
         StmtPtr body = statement();
-        return std::make_unique<ForStmt>(std::move(init), std::move(cond), std::move(incr),
+        return std::make_unique<ForStmt>(std::move(initStmt), std::move(cond), std::move(incr),
                                          std::move(body));
     }
     if (match(TT::RETURN))
@@ -459,7 +572,8 @@ std::unique_ptr<Expr> Parser::multiplicative()
 
 std::unique_ptr<Expr> Parser::unary()
 {
-    if (match(TT::BANG) || match(TT::MINUS) || match(TT::AMPERSAND) || match(TT::STAR))
+    if (match(TT::BANG) || match(TT::MINUS) || match(TT::AMPERSAND) || match(TT::STAR)
+        || match(TT::PLUS_PLUS) || match(TT::MINUS_MINUS))
     {
         lexer::Token op  = previous();
         auto         rhs = unary();
@@ -517,5 +631,96 @@ std::unique_ptr<Expr> Parser::primary()
 
     error(peek(), "expected expression");
     return nullptr;
+}
+
+StmtPtr Parser::init_declarator()
+{
+    // init_declarator ::= declarator [ '=' initializer ]
+    // Our declarator() returns a VarDeclStmt with a dummy type; attach optional initializer
+    StmtPtr decl = declarator();
+    if (match(TT::EQUAL))
+    {
+        ExprPtr init_expr = initializer();
+        // update VarDeclStmt initializer if possible
+        if (auto var = dynamic_cast<VarDeclStmt *>(decl.get()))
+        {
+            var->initializer = std::move(init_expr);
+            return decl;
+        }
+    }
+    return decl;
+}
+
+StmtPtr Parser::parameter()
+{
+    if (!is_type_specifier())
+        error(peek(), "expected parameter type");
+    lexer::Token ptype = parse_type_specifier();
+    lexer::Token pname = consume(TT::IDENTIFIER, "expected parameter name");
+    return std::make_unique<VarDeclStmt>(ptype, pname, nullptr);
+}
+
+lexer::Token Parser::type_specifier()
+{
+    return parse_type_specifier();
+}
+
+ExprPtr Parser::assignment_expression()
+{
+    return assignment();
+}
+
+ExprPtr Parser::logical_or_expression()
+{
+    return logical_or();
+}
+
+ExprPtr Parser::logical_and_expression()
+{
+    return logical_and();
+}
+
+ExprPtr Parser::equality_expression()
+{
+    return equality();
+}
+
+ExprPtr Parser::relational_expression()
+{
+    return relational();
+}
+
+ExprPtr Parser::additive_expression()
+{
+    return additive();
+}
+
+ExprPtr Parser::multiplicative_expression()
+{
+    return multiplicative();
+}
+
+ExprPtr Parser::unary_expression()
+{
+    return unary();
+}
+
+ExprPtr Parser::postfix_expression()
+{
+    return postfix();
+}
+
+std::vector<ExprPtr> Parser::argument_expression_list()
+{
+    std::vector<ExprPtr> args;
+    if (check(TT::RPAREN))
+        return args;
+    while (true)
+    {
+        args.push_back(assignment());
+        if (!match(TT::COMMA))
+            break;
+    }
+    return args;
 }
 }

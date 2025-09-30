@@ -30,27 +30,47 @@ struct Parser
     static void          error(const lexer::Token &peek, const char *message);
 
     StmtPtr                       top_level();
+    StmtPtr                       init_declarator_list(const lexer::Token &type);
     StmtPtr                       declaration();
     StmtPtr                       function_definition();
     StmtPtr                       struct_declaration();
     StmtPtr                       var_declaration(const lexer::Token &typeTok);
+    StmtPtr                       direct_declarator(StmtPtr base);
+    std::vector<StmtPtr>          parameter_list();
     std::unique_ptr<CompoundStmt> compound_statement();
+    StmtPtr                       init_declarator();
+    StmtPtr                       parameter();
     StmtPtr                       statement();
+    StmtPtr                       declarator();
 
-    std::unique_ptr<Expr> expression();
-    std::unique_ptr<Expr> assignment();
-    std::unique_ptr<Expr> logical_or();
-    std::unique_ptr<Expr> logical_and();
-    std::unique_ptr<Expr> equality();
-    std::unique_ptr<Expr> relational();
-    std::unique_ptr<Expr> additive();
-    std::unique_ptr<Expr> multiplicative();
-    std::unique_ptr<Expr> unary();
-    std::unique_ptr<Expr> postfix();
-    std::unique_ptr<Expr> primary();
+    ExprPtr              assignment_expression();
+    ExprPtr              logical_or_expression();
+    ExprPtr              logical_and_expression();
+    ExprPtr              equality_expression();
+    ExprPtr              relational_expression();
+    ExprPtr              additive_expression();
+    ExprPtr              multiplicative_expression();
+    ExprPtr              unary_expression();
+    ExprPtr              postfix_expression();
+    std::vector<ExprPtr> argument_expression_list();
+    std::vector<ExprPtr> initializer_list();
+    ExprPtr              initializer();
+    ExprPtr              expression();
+    ExprPtr              assignment();
+    ExprPtr              logical_or();
+    ExprPtr              logical_and();
+    ExprPtr              equality();
+    ExprPtr              relational();
+    ExprPtr              additive();
+    ExprPtr              multiplicative();
+    ExprPtr              unary();
+    ExprPtr              postfix();
+    ExprPtr              primary();
 
-    [[nodiscard]] bool is_type_specifier() const;
-    lexer::Token       parse_type_specifier();
+    [[nodiscard]] bool        is_type_specifier() const;
+    lexer::Token              type_specifier();
+    std::vector<lexer::Token> identifier_list();
+    lexer::Token              parse_type_specifier();
 };
 
 }
