@@ -1,6 +1,6 @@
 # tinyc 🐜
 
-*A minimal C-like compiler built on top of LLVM IR.*
+*A compiler of a minimal subset of C built on top of LLVM IR.*
 
 ---
 
