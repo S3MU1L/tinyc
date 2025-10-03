@@ -130,6 +130,18 @@ inline void ASTPrinter::print(const StmtPtr &stmt, std::ostream &out, const int 
         out << "Condition:\n";
         print(s->condition, out, indent + 2);
     }
+    else if (auto s = dynamic_cast<StructDeclStmt *>(stmt.get()))
+    {
+        print_indent(out, indent);
+        out << "StructDeclStmt: " << s->name.lexeme << "\n";
+        for (const auto &f : s->fields)
+        {
+            print_indent(out, indent + 1);
+            out << "Field: " << f.name.lexeme << " (type: " << f.type_token.lexeme << ")\n";
+            if (f.initializer)
+                print(f.initializer, out, indent + 2);
+        }
+    }
     else
     {
         print_indent(out, indent);

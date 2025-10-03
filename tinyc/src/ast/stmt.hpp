@@ -108,4 +108,12 @@ struct AssertStmt final : Stmt
     explicit     AssertStmt(ExprPtr c);
     llvm::Value *codegen() override;
 };
+
+struct PrintStmt final : Stmt
+{
+    ExprPtr expr;
+
+    explicit     PrintStmt(ExprPtr e);
+    llvm::Value *codegen() override;
+};
 }

@@ -418,4 +418,31 @@ llvm::Value *AssertStmt::codegen()
     codegen::builder.SetInsertPoint(okBB);
     return nullptr;
 }
+
+PrintStmt::PrintStmt(ExprPtr e) : expr(std::move(e))
+{
+}
+
+llvm::Value *PrintStmt::codegen()
+{
+    if (!expr || !codegen::modules)
+        return nullptr;
+
+    llvm::Value *val = expr->codegen();
+    if (!val)
+        return nullptr;
+
+    // declare and call printf
+    llvm::FunctionType *printfTy = llvm::FunctionType::get(
+            llvm::Type::getInt32Ty(codegen::context),
+            {llvm::Type::getInt16Ty(codegen::context), llvm::Type::getInt32Ty(codegen::context)},
+            true);
+    llvm::FunctionCallee printfF = codegen::modules->getOrInsertFunction("printf", printfTy);
+
+    llvm::Value *fmt = codegen::builder.CreateGlobalStringPtr("%d\n", "print.fmt");
+
+    return codegen::builder.CreateCall(printfF, {fmt, val}, "printcall");
+}
+
+
 }
