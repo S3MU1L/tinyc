@@ -5,6 +5,7 @@
 #include <utility>
 #include <llvm/IR/Function.h>
 #include <llvm/IR/DerivedTypes.h>
+#include <string>
 
 namespace tinyc::ast {
 
@@ -29,6 +30,20 @@ llvm::Value *LiteralExpr::codegen()
                     llvm::APInt(32, std::get<unsigned long long>(token.literal), false));
         break;
     }
+    case lexer::TokenType::TRUE:
+        return llvm::ConstantInt::get(codegen::context, llvm::APInt(32, 1));
+    case lexer::TokenType::FALSE:
+        return llvm::ConstantInt::get(codegen::context, llvm::APInt(32, 0));
+    case lexer::TokenType::NULLPTR:
+        return llvm::ConstantInt::get(codegen::context, llvm::APInt(32, 0));
+    case lexer::TokenType::STRING_LITERAL: {
+        if (std::holds_alternative<std::string>(token.literal))
+        {
+            const std::string &str = std::get<std::string>(token.literal);
+            return codegen::createGlobalString(str);
+        }
+        break;
+    }
     default:
         break;
     }
@@ -47,7 +62,6 @@ llvm::Value *VariableExpr::codegen()
                                            it->second, name.lexeme.c_str());
     }
 
-    // If not found, maybe it's a function in the module -> return function pointer
     if (codegen::modules)
     {
         if (auto *fn = codegen::modules->getFunction(name.lexeme))
@@ -74,7 +88,6 @@ llvm::Value *UnaryExpr::codegen()
     case lexer::TokenType::PLUS:
         return operand;
     case lexer::TokenType::BANG: {
-        // logical not: (operand == 0) ? 1 : 0 -> produce i32
         auto *cmp = codegen::builder.CreateICmpEQ(
                 operand, llvm::ConstantInt::get(codegen::context, llvm::APInt(32, 0)),
                 "notcmp");
@@ -91,11 +104,9 @@ llvm::Value *UnaryExpr::codegen()
             if (it == codegen::named_values.end())
                 return nullptr;
 
-            // load current value
             llvm::Value *loaded = codegen::builder.CreateLoad(
                     llvm::Type::getInt32Ty(codegen::context), it->second,
                     var->name.lexeme + ".load");
-            // create one
             llvm::Value *one = llvm::ConstantInt::get(codegen::context, llvm::APInt(32, 1));
             llvm::Value *res = nullptr;
             if (op.type == lexer::TokenType::PLUS_PLUS)
@@ -103,11 +114,9 @@ llvm::Value *UnaryExpr::codegen()
             else
                 res = codegen::builder.CreateSub(loaded, one, "dectmp");
 
-            // store back and return new value
             codegen::builder.CreateStore(res, it->second);
             return res;
         }
-        // unsupported lvalue form for ++/--
         return nullptr;
     }
     default:
@@ -132,19 +141,19 @@ llvm::Value *BinaryExpr::codegen()
     switch (op.type)
     {
     case lexer::TokenType::PLUS:
-        return tinyc::codegen::builder.CreateAdd(lhs, rhs, "addtmp");
+        return codegen::builder.CreateAdd(lhs, rhs, "addtmp");
     case lexer::TokenType::MINUS:
-        return tinyc::codegen::builder.CreateSub(lhs, rhs, "subtmp");
+        return codegen::builder.CreateSub(lhs, rhs, "subtmp");
     case lexer::TokenType::STAR:
-        return tinyc::codegen::builder.CreateMul(lhs, rhs, "multmp");
+        return codegen::builder.CreateMul(lhs, rhs, "multmp");
     case lexer::TokenType::SLASH:
-        return tinyc::codegen::builder.CreateSDiv(lhs, rhs, "divtmp");
+        return codegen::builder.CreateSDiv(lhs, rhs, "divtmp");
     case lexer::TokenType::PERCENT:
-        return tinyc::codegen::builder.CreateSRem(lhs, rhs, "modtmp");
+        return codegen::builder.CreateSRem(lhs, rhs, "modtmp");
     case lexer::TokenType::EQUAL_EQUAL: {
-        auto *cmp = tinyc::codegen::builder.CreateICmpEQ(lhs, rhs, "cmpeq");
+        auto *cmp = codegen::builder.CreateICmpEQ(lhs, rhs, "cmpeq");
         return tinyc::codegen::builder.CreateZExt(
-                cmp, llvm::Type::getInt32Ty(tinyc::codegen::context), "booleq");
+                cmp, llvm::Type::getInt32Ty(codegen::context), "booleq");
     }
     case lexer::TokenType::BANG_EQUAL: {
         auto *cmp = codegen::builder.CreateICmpNE(lhs, rhs, "cmpne");
@@ -202,10 +211,66 @@ CallExpr::CallExpr(ExprPtr c, std::vector<ExprPtr> args) : callee(std::move(c)),
 
 llvm::Value *CallExpr::codegen()
 {
-    // if callee is a simple variable, try to resolve function by name
     if (const auto *ve = dynamic_cast<VariableExpr *>(callee.get()))
     {
-        if (!tinyc::codegen::modules)
+        if (ve->name.lexeme == "print")
+        {
+            if (!codegen::modules)
+                return nullptr;
+
+            std::vector<llvm::Value *> callArgs;
+            std::string                fmt;
+            fmt.reserve(arguments.size() * 4);
+
+            for (size_t i = 0; i < arguments.size(); ++i)
+            {
+                Expr *       argptr = arguments[i].get();
+                llvm::Value *av     = argptr->codegen();
+                if (!av)
+                    return nullptr;
+
+                if (llvm::Type *t = av->getType(); t->isPointerTy())
+                {
+                    if (llvm::Type *i8Ptr = llvm::Type::getInt8Ty(codegen::context)->getPointerTo();
+                        t != i8Ptr)
+                        av = codegen::builder.CreateBitCast(av, i8Ptr, "strcast");
+                    fmt += "%s";
+                    callArgs.push_back(av);
+                }
+                else if (t->isIntegerTy())
+                {
+                    unsigned    bw    = t->getIntegerBitWidth();
+                    llvm::Type *i32Ty = llvm::Type::getInt32Ty(codegen::context);
+                    if (bw < 32)
+                        av = codegen::builder.CreateSExt(av, i32Ty, "sexttmp");
+                    else if (bw > 32)
+                        av = codegen::builder.CreateTrunc(av, i32Ty, "trunctmp");
+                    fmt += "%d";
+                    callArgs.push_back(av);
+                }
+                else
+                {
+                    return nullptr;
+                }
+
+                if (i + 1 < arguments.size())
+                    fmt += " ";
+            }
+
+            fmt += "\\n";
+            llvm::Value *fmtPtr = codegen::createGlobalString(fmt, "fmt");
+            if (!fmtPtr)
+                return nullptr;
+
+            callArgs.insert(callArgs.begin(), fmtPtr);
+            llvm::FunctionCallee printfCallee = codegen::getPrintf();
+            if (!printfCallee)
+                return nullptr;
+
+            return codegen::builder.CreateCall(printfCallee, callArgs, "printcall");
+        }
+
+        if (!codegen::modules)
             return nullptr;
         llvm::Function *calleeF = codegen::modules->getFunction(ve->name.lexeme);
         if (!calleeF)
