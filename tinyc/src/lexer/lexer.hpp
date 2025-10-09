@@ -27,6 +27,7 @@ struct Lexer
     explicit           Lexer(std::string content);
     void               scan_tokens();
     void               number_literal();
+    void               string_literal();
     void               scan_token();
     [[nodiscard]] char peek() const;
     [[nodiscard]] bool is_end() const;

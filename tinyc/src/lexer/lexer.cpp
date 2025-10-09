@@ -15,10 +15,10 @@ static const std::unordered_map<std::string, TokenType> keywords = {
         {"if", TokenType::IF}, {"else", TokenType::ELSE}, {"while", TokenType::WHILE},
         {"for", TokenType::FOR}, {"return", TokenType::RETURN}, {"struct", TokenType::STRUCT},
         {"int", TokenType::INT}, {"char", TokenType::CHAR}, {"bool", TokenType::BOOL},
-        {"unsigned", TokenType::UNSIGNED}, {"true", TokenType::TRUE},{"false", TokenType::FALSE},
-        {"NULL", TokenType::NULLPTR}, {"print", TokenType::PRINT},
-        {"break", TokenType::BREAK}, {"continue", TokenType::CONTINUE}, {"do", TokenType::DO},
-        {"assert", TokenType::ASSERT}
+        {"unsigned", TokenType::UNSIGNED}, {"true", TokenType::TRUE}, {"false", TokenType::FALSE},
+        {"NULL", TokenType::NULLPTR}, {"break", TokenType::BREAK},
+        {"continue", TokenType::CONTINUE},
+        {"do", TokenType::DO}, {"assert", TokenType::ASSERT}
 };
 
 Lexer::Lexer(std::string content) : content(std::move(content))
@@ -196,6 +196,9 @@ void Lexer::scan_token()
             add_token(TokenType::SLASH, {});
         break;
     }
+    case '"':
+        string_literal();
+        break;
     case ' ':
     case '\r':
     case '\t':
@@ -288,6 +291,51 @@ bool Lexer::is_hex_digit(char c)
     return (c >= '0' && c <= '9') ||
            (c >= 'a' && c <= 'f') ||
            (c >= 'A' && c <= 'F');
+}
+
+void Lexer::string_literal()
+{
+    // We assume the opening '"' has already been consumed; start points at opening position.
+    std::string value;
+    while (!is_end())
+    {
+        char c = advance();
+        if (c == '\\')
+        {
+            if (is_end())
+            {
+                error("Unterminated string literal");
+                break;
+            }
+            char esc = advance();
+            switch (esc)
+            {
+            case 'n': value.push_back('\n'); break;
+            case 't': value.push_back('\t'); break;
+            case 'r': value.push_back('\r'); break;
+            case '\\': value.push_back('\\'); break;
+            case '\"': value.push_back('"'); break;
+            default:
+                // unknown escape, keep literal char
+                value.push_back(esc);
+                break;
+            }
+        }
+        else if (c == '"')
+        {
+            // end of string
+            add_token(TokenType::STRING_LITERAL, Literal{value});
+            return;
+        }
+        else
+        {
+            if (c == '\n')
+                line++;
+            value.push_back(c);
+        }
+    }
+    // If we reach here, unterminated
+    error("Unterminated string literal");
 }
 
 void Lexer::number_literal()
