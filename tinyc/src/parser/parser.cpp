@@ -6,7 +6,10 @@
 
 #include <iostream>
 
+
 // TODO: add parser diagnosticts
+// TODO: ehmm, not really, we probably don't want any recovery
+// TODO: just die on the first error
 namespace tinyc::ast {
 
 using TT = lexer::TokenType;

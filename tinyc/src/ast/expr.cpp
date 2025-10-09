@@ -213,7 +213,7 @@ llvm::Value *CallExpr::codegen()
 {
     if (const auto *ve = dynamic_cast<VariableExpr *>(callee.get()))
     {
-        if (ve->name.lexeme == "print")
+        if (ve->name.lexeme == "print" || ve->name.lexeme == "println")
         {
             if (!codegen::modules)
                 return nullptr;
@@ -257,17 +257,37 @@ llvm::Value *CallExpr::codegen()
                     fmt += " ";
             }
 
-            fmt += "\\n";
-            llvm::Value *fmtPtr = codegen::createGlobalString(fmt, "fmt");
-            if (!fmtPtr)
-                return nullptr;
+            // Special-case: println behaves like print but appends a newline automatically.
+            if (ve->name.lexeme == "println")
+            {
+                // If there are no arguments, just print a newline
+                if (fmt.empty())
+                    fmt = "\n";
+                else
+                    fmt += "\n";
 
-            callArgs.insert(callArgs.begin(), fmtPtr);
-            llvm::FunctionCallee printfCallee = codegen::getPrintf();
-            if (!printfCallee)
-                return nullptr;
+                llvm::Value *fmtPtr = codegen::createGlobalString(fmt, "fmt");
+                if (!fmtPtr)
+                    return nullptr;
 
-            return codegen::builder.CreateCall(printfCallee, callArgs, "printcall");
+                callArgs.insert(callArgs.begin(), fmtPtr);
+                llvm::FunctionCallee printfCallee = codegen::getPrintf();
+                if (!printfCallee)
+                    return nullptr;
+
+                return codegen::builder.CreateCall(printfCallee, callArgs, "printlncall");
+            }
+
+             llvm::Value *fmtPtr = codegen::createGlobalString(fmt, "fmt");
+             if (!fmtPtr)
+                 return nullptr;
+
+             callArgs.insert(callArgs.begin(), fmtPtr);
+             llvm::FunctionCallee printfCallee = codegen::getPrintf();
+             if (!printfCallee)
+                 return nullptr;
+
+             return codegen::builder.CreateCall(printfCallee, callArgs, "printcall");
         }
 
         if (!codegen::modules)

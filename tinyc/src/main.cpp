@@ -43,8 +43,6 @@ int main(const int argc, char *argv[])
         /* FINISHED PARSING */
 
 
-        std::cout << "the size of statements is: " <<  statements.size() << '\n';
-        /* CODEGEN */
         tinyc::codegen::modules = std::make_unique<llvm::Module>(
                 tinyc::common::FileUtil::get_file_name(opt.input_file), tinyc::codegen::context);
 
@@ -52,7 +50,6 @@ int main(const int argc, char *argv[])
         {
             if (!stmt)
                 continue;
-            tinyc::ast::ASTPrinter::print(stmt, std::cout, 0);
             if (stmt)
                 stmt->codegen();
         }
