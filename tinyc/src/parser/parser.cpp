@@ -418,7 +418,7 @@ StmtPtr Parser::statement()
             if (is_type_specifier())
             {
                 const lexer::Token t = parse_type_specifier();
-                initStmt = init_declarator_list(t);
+                initStmt             = init_declarator_list(t);
                 consume(TT::SEMICOLON, "expected ';' after for-init declaration");
             }
             else
@@ -466,7 +466,6 @@ StmtPtr Parser::statement()
         consume(TT::SEMICOLON, "expected ';' after assert statement");
         return std::make_unique<AssertStmt>(std::move(cond));
     }
-
     if (match(TT::SEMICOLON))
         return nullptr;
 
@@ -616,8 +615,8 @@ std::unique_ptr<Expr> Parser::primary()
         return std::make_unique<VariableExpr>(previous());
     }
 
-    if (match(TT::INT_LITERAL) || match(TT::UNSIGNED_LITERAL) || match(TT::TRUE) || match(TT::FALSE)
-        || match(TT::NULLPTR))
+    if (match(TT::INT_LITERAL) || match(TT::UNSIGNED_LITERAL) || match(TT::NULLPTR) ||
+        match(TT::TRUE) || match(TT::FALSE) || match(TT::STRING_LITERAL))
     {
         return std::make_unique<LiteralExpr>(previous());
     }
@@ -635,14 +634,11 @@ std::unique_ptr<Expr> Parser::primary()
 
 StmtPtr Parser::init_declarator()
 {
-    // init_declarator ::= declarator [ '=' initializer ]
-    // Our declarator() returns a VarDeclStmt with a dummy type; attach optional initializer
     StmtPtr decl = declarator();
     if (match(TT::EQUAL))
     {
         ExprPtr init_expr = initializer();
-        // update VarDeclStmt initializer if possible
-        if (auto var = dynamic_cast<VarDeclStmt *>(decl.get()))
+        if (const auto var = dynamic_cast<VarDeclStmt *>(decl.get()))
         {
             var->initializer = std::move(init_expr);
             return decl;
