@@ -53,7 +53,7 @@ struct WhileStmt final : Stmt
 
 struct ForStmt final : Stmt
 {
-    StmtPtr init; // can be VarDeclStmt or ExprStmt or nullptr
+    StmtPtr init;
     ExprPtr cond;
     ExprPtr incr;
     StmtPtr body;
@@ -106,14 +106,6 @@ struct AssertStmt final : Stmt
     ExprPtr condition;
 
     explicit     AssertStmt(ExprPtr c);
-    llvm::Value *codegen() override;
-};
-
-struct PrintStmt final : Stmt
-{
-    ExprPtr expr;
-
-    explicit     PrintStmt(ExprPtr e);
     llvm::Value *codegen() override;
 };
 }

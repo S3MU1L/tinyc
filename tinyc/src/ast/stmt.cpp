@@ -67,21 +67,18 @@ llvm::Value *IfStmt::codegen()
 
     tinyc::codegen::builder.CreateCondBr(cond, thenBB, elseBB);
 
-    // then
     codegen::builder.SetInsertPoint(thenBB);
     if (then_branch)
         then_branch->codegen();
     if (!codegen::builder.GetInsertBlock()->getTerminator())
         codegen::builder.CreateBr(mergeBB);
 
-    // else
     codegen::builder.SetInsertPoint(elseBB);
     if (else_branch)
         else_branch->codegen();
     if (!codegen::builder.GetInsertBlock()->getTerminator())
         codegen::builder.CreateBr(mergeBB);
 
-    // merge
     codegen::builder.SetInsertPoint(mergeBB);
 
     return nullptr;
@@ -185,12 +182,10 @@ CompoundStmt::CompoundStmt(std::vector<StmtPtr> s) : statements(std::move(s))
 
 llvm::Value *CompoundStmt::codegen()
 {
-    // save current named values to implement scope
     auto saved = codegen::named_values;
     for (auto &st : statements)
         if (st)
             st->codegen();
-    // restore outer scope mappings
     codegen::named_values = std::move(saved);
     return nullptr;
 }
@@ -305,7 +300,6 @@ llvm::Value *FunctionDeclStmt::codegen()
     llvm::Function *function = llvm::Function::Create(ft, llvm::Function::ExternalLinkage,
                                                       name.lexeme, codegen::modules.get());
 
-    // name parameters
     size_t idx = 0;
     for (auto &arg : function->args())
     {
@@ -343,7 +337,6 @@ llvm::Value *FunctionDeclStmt::codegen()
                     llvm::ConstantInt::get(codegen::context, llvm::APInt(32, 0)));
     }
 
-    // restore named_values
     codegen::named_values = std::move(saved_named);
     return function;
 }
@@ -366,7 +359,6 @@ AssertStmt::AssertStmt(ExprPtr c) : condition(std::move(c))
 
 llvm::Value *AssertStmt::codegen()
 {
-    // require insertion point and condition
     llvm::BasicBlock *insertBB = codegen::builder.GetInsertBlock();
     if (!insertBB || !condition || !codegen::modules)
         return nullptr;
@@ -375,29 +367,22 @@ llvm::Value *AssertStmt::codegen()
     if (!fn)
         return nullptr;
 
-    // evaluate condition
     llvm::Value *condv = condition->codegen();
     if (!condv)
         return nullptr;
 
-    // convert to boolean: condv != 0
     llvm::Value *cond = codegen::builder.CreateICmpNE(
             condv, llvm::ConstantInt::get(codegen::context, llvm::APInt(32, 0)),
             "assertcond");
 
-    // create blocks for ok / fail
     llvm::BasicBlock *okBB   = llvm::BasicBlock::Create(codegen::context, "assert.ok", fn);
     llvm::BasicBlock *failBB = llvm::BasicBlock::Create(codegen::context, "assert.fail", fn);
 
     codegen::builder.CreateCondBr(cond, okBB, failBB);
-
-    // failure block: print message and abort
     codegen::builder.SetInsertPoint(failBB);
 
-    // message
     llvm::Value *msg = codegen::builder.CreateGlobalStringPtr("Assertion failed\n", "assert.msg");
 
-    // declare and call puts(const char*)
     llvm::FunctionType *putsTy = llvm::FunctionType::get(
             llvm::Type::getInt32Ty(codegen::context),
             {llvm::Type::getInt8Ty(codegen::context)},
@@ -405,44 +390,13 @@ llvm::Value *AssertStmt::codegen()
     llvm::FunctionCallee putsF = codegen::modules->getOrInsertFunction("puts", putsTy);
     codegen::builder.CreateCall(putsF, {msg});
 
-    // declare and call abort()
     llvm::FunctionType *abortTy = llvm::FunctionType::get(llvm::Type::getVoidTy(codegen::context),
                                                           false);
     llvm::FunctionCallee abortF = codegen::modules->getOrInsertFunction("abort", abortTy);
     codegen::builder.CreateCall(abortF, {});
 
-    // mark unreachable after abort
     codegen::builder.CreateUnreachable();
-
-    // continue at ok block
     codegen::builder.SetInsertPoint(okBB);
     return nullptr;
 }
-
-PrintStmt::PrintStmt(ExprPtr e) : expr(std::move(e))
-{
-}
-
-llvm::Value *PrintStmt::codegen()
-{
-    if (!expr || !codegen::modules)
-        return nullptr;
-
-    llvm::Value *val = expr->codegen();
-    if (!val)
-        return nullptr;
-
-    // declare and call printf
-    llvm::FunctionType *printfTy = llvm::FunctionType::get(
-            llvm::Type::getInt32Ty(codegen::context),
-            {llvm::Type::getInt16Ty(codegen::context), llvm::Type::getInt32Ty(codegen::context)},
-            true);
-    llvm::FunctionCallee printfF = codegen::modules->getOrInsertFunction("printf", printfTy);
-
-    llvm::Value *fmt = codegen::builder.CreateGlobalStringPtr("%d\n", "print.fmt");
-
-    return codegen::builder.CreateCall(printfF, {fmt, val}, "printcall");
-}
-
-
 }
