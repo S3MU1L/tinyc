@@ -5,7 +5,7 @@
 #include <variant>
 
 namespace tinyc::lexer {
-using Literal = std::variant<unsigned long long, long long, bool>;
+using Literal = std::variant<std::string, unsigned long long, long long, bool>;
 
 struct Token
 {
