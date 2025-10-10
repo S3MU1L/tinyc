@@ -26,7 +26,6 @@ struct Parser
     lexer::Token               consume_any(const std::vector<lexer::TokenType> &types,
                              const std::string &                                message);
     std::vector<StmtPtr> parse();
-    void                 synchronize();
     static void          error(const lexer::Token &peek, const char *message);
 
     StmtPtr                       top_level();

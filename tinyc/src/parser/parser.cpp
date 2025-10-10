@@ -85,42 +85,10 @@ lexer::Token Parser::consume_any(const std::vector<lexer::TokenType> &types,
 std::vector<StmtPtr> Parser::parse()
 {
     std::vector<StmtPtr> stmts = {};
-    try
-    {
-        while (!is_end())
-            if (StmtPtr t = top_level())
-                stmts.push_back(std::move(t));
-    } catch (const std::runtime_error &e)
-    {
-        std::cout << e.what() << '\n';
-        synchronize();
-    }
-    return stmts;
-}
-
-void Parser::synchronize()
-{
     while (!is_end())
-    {
-        if (previous().type == TT::SEMICOLON)
-            return;
-        switch (peek().type)
-        {
-        case TT::IF:
-        case TT::FOR:
-        case TT::WHILE:
-        case TT::RETURN:
-        case TT::STRUCT:
-        case TT::INT:
-        case TT::CHAR:
-        case TT::BOOL:
-        case TT::UNSIGNED:
-            return;
-        default:
-            break;
-        }
-        advance();
-    }
+        if (StmtPtr t = top_level())
+            stmts.push_back(std::move(t));
+    return stmts;
 }
 
 void Parser::error(const lexer::Token &peek, const char *message)
