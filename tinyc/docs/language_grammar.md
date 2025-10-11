@@ -28,7 +28,7 @@ parameter ::= type_specifier declarator ;
 
 type_specifier ::= "int" | "char" | "bool" | "unsigned" | struct_type ;
 
-struct_type ::= "struct" identifier | "struct" "{" { var_declaration } "}" ;
+struct_type ::= "struct" identifier ;
 
 declarator ::= pointer_opt direct_declarator ;
 

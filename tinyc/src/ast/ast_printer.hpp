@@ -187,7 +187,6 @@ inline void ASTPrinter::print(const ExprPtr &expr, std::ostream &out, const int 
     else if (auto e = dynamic_cast<AssignmentExpr *>(expr.get()))
     {
         print_indent(out, indent);
-        out << "AssignmentExpr: " << e->name.lexeme << "\n";
         print(e->value, out, indent + 1);
     }
     else if (auto e = dynamic_cast<CallExpr *>(expr.get()))
