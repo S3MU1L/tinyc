@@ -1,6 +1,5 @@
 #include "codegen/codegen.hpp"
 #include "lexer/lexer.hpp"
-#include "ast/ast_printer.hpp"
 #include "parser/parser.hpp"
 #include "ast/stmt.hpp"
 #include "common/args_parser.hpp"
@@ -17,7 +16,6 @@ int main(const int argc, char *argv[])
         tinyc::common::FileUtil::check_file(opt.input_file);
         const std::string content = tinyc::common::FileUtil::read_file(opt.input_file);
 
-        /* LEXING */
         tinyc::lexer::Lexer lexer(content);
         lexer.scan_tokens();
 
@@ -33,16 +31,9 @@ int main(const int argc, char *argv[])
 
         if (lexer.has_errors())
             return EXIT_FAILURE;
-        /* FINISHED LEXING */
 
-        /* PARSING */
         tinyc::ast::Parser                     parser(lexer.tokens);
         const std::vector<tinyc::ast::StmtPtr> statements = parser.parse();
-        for (const auto &stmt : statements)
-            tinyc::ast::ASTPrinter::print(stmt, std::cout, 0);
-        /* FINISHED PARSING */
-
-
         tinyc::codegen::modules = std::make_unique<llvm::Module>(
                 tinyc::common::FileUtil::get_file_name(opt.input_file), tinyc::codegen::context);
 

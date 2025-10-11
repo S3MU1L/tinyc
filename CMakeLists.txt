@@ -9,7 +9,6 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 find_path(ZSTD_INCLUDE_DIR zstd.h PATHS /usr/include /usr/local/include NO_DEFAULT_PATH)
 find_library(ZSTD_LIBRARY NAMES zstd zstdcodec zstd_shared PATHS /usr/lib /usr/lib/x86_64-linux-gnu /usr/local/lib /lib /lib64 NO_DEFAULT_PATH)
 
-# fallback to default search if explicit paths didn't find anything
 if(NOT ZSTD_INCLUDE_DIR)
     find_path(ZSTD_INCLUDE_DIR zstd.h)
 endif()
@@ -44,8 +43,6 @@ add_executable(tinyc
         tinyc/src/ast/stmt.hpp
         tinyc/src/parser/parser.hpp
         tinyc/src/parser/parser.cpp
-        tinyc/src/ast/ast_printer.hpp
-        tinyc/src/ast/ast_printer.hpp
         tinyc/src/codegen/codegen.hpp
         tinyc/src/codegen/codegen.cpp
         tinyc/src/ast/expr.cpp
