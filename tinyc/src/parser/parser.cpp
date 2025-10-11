@@ -249,7 +249,6 @@ StmtPtr Parser::declaration()
 
 StmtPtr Parser::function_definition()
 {
-    std::cout << "function definition\n";
     lexer::Token       typeTok = parse_type_specifier();
     const lexer::Token nameTok = advance();
 
