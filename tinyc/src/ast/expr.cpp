@@ -78,7 +78,7 @@ UnaryExpr::UnaryExpr(lexer::Token op_, ExprPtr r) : op(std::move(op_)), right(st
 llvm::Value *UnaryExpr::codegen()
 {
     llvm::Value *operand = right->codegen();
-    if (!operand)
+    if (!operand && op.type != lexer::TokenType::AMPERSAND)
         return nullptr;
 
     switch (op.type)
@@ -96,6 +96,21 @@ llvm::Value *UnaryExpr::codegen()
     }
     case lexer::TokenType::TILDE:
         return codegen::builder.CreateNot(operand, "bitnottmp");
+    case lexer::TokenType::AMPERSAND: {
+        if (const auto *var = dynamic_cast<VariableExpr *>(right.get()))
+        {
+            const auto it = codegen::named_values.find(var->name.lexeme);
+            if (it == codegen::named_values.end())
+                return nullptr;
+            return it->second;
+        }
+        return nullptr;
+    }
+    case lexer::TokenType::STAR: {
+        if (!operand)
+            return nullptr;
+        return codegen::builder.CreateLoad(llvm::Type::getInt32Ty(codegen::context), operand, "derefload");
+    }
     case lexer::TokenType::PLUS_PLUS:
     case lexer::TokenType::MINUS_MINUS: {
         if (const auto *var = dynamic_cast<VariableExpr *>(right.get()))
@@ -186,7 +201,7 @@ llvm::Value *BinaryExpr::codegen()
     return nullptr;
 }
 
-AssignmentExpr::AssignmentExpr(lexer::Token n, ExprPtr v) : name(std::move(n)), value(std::move(v))
+AssignmentExpr::AssignmentExpr(ExprPtr l, ExprPtr v) : lhs(std::move(l)), value(std::move(v))
 {
 }
 
@@ -196,12 +211,102 @@ llvm::Value *AssignmentExpr::codegen()
     if (!val)
         return nullptr;
 
-    const auto it = codegen::named_values.find(name.lexeme);
-    if (it == codegen::named_values.end())
-        return nullptr;
+    if (auto *var = dynamic_cast<VariableExpr *>(lhs.get()))
+    {
+        const auto it = codegen::named_values.find(var->name.lexeme);
+        if (it == codegen::named_values.end())
+            return nullptr;
+        codegen::builder.CreateStore(val, it->second);
+        return val;
+    }
 
-    codegen::builder.CreateStore(val, it->second);
-    return val;
+    // member assignment
+    if (auto *mem = dynamic_cast<MemberExpr *>(lhs.get()))
+    {
+        llvm::Value *addr = mem->codegen_address();
+        if (!addr)
+            return nullptr;
+        codegen::builder.CreateStore(val, addr);
+        return val;
+    }
+
+    return nullptr;
+}
+
+MemberExpr::MemberExpr(ExprPtr obj, lexer::Token m, bool a) : object(std::move(obj)), member(m), arrow(a)
+{
+}
+
+llvm::Value *MemberExpr::codegen_address()
+{
+    // find struct type and field index
+    // object can be variable (dot) or pointer expression (arrow)
+    if (arrow)
+    {
+        // evaluate object to get pointer
+        llvm::Value *ptr = object->codegen();
+        if (!ptr)
+            return nullptr;
+        // ptr should be i8* or pointer to struct; assume pointer to struct
+        // member.access: lookup struct type name via dynamic VariableExpr? for simplicity, try
+        // to infer struct type from pointer type name not available; instead if object is variable and named_struct_vars has mapping
+        if (const auto *ve = dynamic_cast<VariableExpr *>(object.get()))
+        {
+            auto it = codegen::named_struct_vars.find(ve->name.lexeme);
+            if (it == codegen::named_struct_vars.end())
+                return nullptr;
+            const std::string &sname = it->second;
+            auto fit = codegen::struct_fields.find(sname);
+            if (fit == codegen::struct_fields.end())
+                return nullptr;
+            int idx = -1;
+            for (size_t i = 0; i < fit->second.size(); ++i)
+                if (fit->second[i] == member.lexeme)
+                    idx = (int)i;
+            if (idx < 0)
+                return nullptr;
+            llvm::StructType *sty = codegen::struct_types[sname];
+            llvm::Value *gep = codegen::builder.CreateStructGEP(sty, ptr, idx, "fieldptr");
+            return gep;
+        }
+        // fallback: cannot resolve
+        return nullptr;
+    }
+
+    // dot: need address of base object
+    if (const auto *ve = dynamic_cast<VariableExpr *>(object.get()))
+    {
+        const auto it = codegen::named_values.find(ve->name.lexeme);
+        if (it == codegen::named_values.end())
+            return nullptr;
+        auto nv = codegen::named_struct_vars.find(ve->name.lexeme);
+        if (nv == codegen::named_struct_vars.end())
+            return nullptr;
+        const std::string &sname = nv->second;
+        auto fit = codegen::struct_fields.find(sname);
+        if (fit == codegen::struct_fields.end())
+            return nullptr;
+        int idx = -1;
+        for (size_t i = 0; i < fit->second.size(); ++i)
+            if (fit->second[i] == member.lexeme)
+                idx = (int)i;
+        if (idx < 0)
+            return nullptr;
+        llvm::StructType *sty = codegen::struct_types[sname];
+        llvm::Value *ptr = it->second; // alloca
+        llvm::Value *gep = codegen::builder.CreateStructGEP(sty, ptr, idx, "fieldptr");
+        return gep;
+    }
+
+    return nullptr;
+}
+
+llvm::Value *MemberExpr::codegen()
+{
+    llvm::Value *addr = codegen_address();
+    if (!addr)
+        return nullptr;
+    return codegen::builder.CreateLoad(llvm::Type::getInt32Ty(codegen::context), addr, "fieldload");
 }
 
 CallExpr::CallExpr(ExprPtr c, std::vector<ExprPtr> args) : callee(std::move(c)),
@@ -257,10 +362,8 @@ llvm::Value *CallExpr::codegen()
                     fmt += " ";
             }
 
-            // Special-case: println behaves like print but appends a newline automatically.
             if (ve->name.lexeme == "println")
             {
-                // If there are no arguments, just print a newline
                 if (fmt.empty())
                     fmt = "\n";
                 else

@@ -7,9 +7,6 @@
 #include <iostream>
 
 
-// TODO: add parser diagnosticts
-// TODO: ehmm, not really, we probably don't want any recovery
-// TODO: just die on the first error
 namespace tinyc::ast {
 
 using TT = lexer::TokenType;
@@ -113,6 +110,8 @@ lexer::Token Parser::parse_type_specifier()
 
     if (match(TT::STRUCT))
     {
+        if (check(TT::LBRACE))
+            error(peek(), "inline struct definitions are not allowed here; use a top-level 'struct name { ... };'");
         consume(TT::IDENTIFIER, "expected struct name after 'struct'");
         return previous();
     }
@@ -457,10 +456,10 @@ std::unique_ptr<Expr> Parser::assignment()
     {
         const lexer::Token equals = previous();
         auto               rhs    = assignment();
-        if (const auto *var = dynamic_cast<VariableExpr *>(lhs.get()))
+        // allow variable or member expressions as lvalue
+        if (dynamic_cast<VariableExpr *>(lhs.get()) || dynamic_cast<MemberExpr *>(lhs.get()))
         {
-            lexer::Token nameTok = var->name;
-            return std::make_unique<AssignmentExpr>(nameTok, std::move(rhs));
+            return std::make_unique<AssignmentExpr>(std::move(lhs), std::move(rhs));
         }
         error(equals, "invalid assignment target");
     }
@@ -573,7 +572,14 @@ std::unique_ptr<Expr> Parser::postfix()
             expr = std::make_unique<CallExpr>(std::move(expr), std::move(args));
             continue;
         }
-        // TODO: array access, member access can be added later
+        if (match(TT::DOT) || match(TT::ARROW))
+        {
+            bool isArrow = (previous().type == TT::ARROW);
+            lexer::Token member = consume(TT::IDENTIFIER, "expected member name");
+            expr = std::make_unique<MemberExpr>(std::move(expr), member, isArrow);
+            continue;
+        }
+        // TODO: array access can be added later
         break;
     }
     return expr;

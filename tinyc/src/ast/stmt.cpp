@@ -7,10 +7,15 @@
 
 namespace tinyc::ast {
 
-static llvm::AllocaInst *create_entry_block_alloca(llvm::Function *func, const std::string &name)
+static llvm::AllocaInst *create_entry_block_alloca(llvm::Function *func, llvm::Type *ty, const std::string &name)
 {
     llvm::IRBuilder<> tmp(&func->getEntryBlock(), func->getEntryBlock().begin());
-    return tmp.CreateAlloca(llvm::Type::getInt32Ty(codegen::context), nullptr, name);
+    return tmp.CreateAlloca(ty, nullptr, name);
+}
+
+static llvm::AllocaInst *create_entry_block_alloca(llvm::Function *func, const std::string &name)
+{
+    return create_entry_block_alloca(func, llvm::Type::getInt32Ty(codegen::context), name);
 }
 
 ExprStmt::ExprStmt(ExprPtr e) : expr(std::move(e))
@@ -203,24 +208,64 @@ llvm::Value *VarDeclStmt::codegen()
     if (codegen::builder.GetInsertBlock())
         fn = codegen::builder.GetInsertBlock()->getParent();
 
+    // determine if this is a struct type
+    bool is_struct_type = false;
+    std::string struct_name;
+    if (!type_token.lexeme.empty())
+    {
+        // if the type token lexeme matches a known struct name
+        if (codegen::struct_types.find(type_token.lexeme) != codegen::struct_types.end())
+        {
+            is_struct_type = true;
+            struct_name = type_token.lexeme;
+        }
+    }
+
     if (fn)
     {
         if (auto it = codegen::named_values.find(name.lexeme); it == codegen::named_values.end())
         {
-            llvm::AllocaInst *alloca           = create_entry_block_alloca(fn, name.lexeme);
+            llvm::AllocaInst *alloca = nullptr;
+            if (is_struct_type)
+            {
+                llvm::StructType *sty = codegen::struct_types[struct_name];
+                alloca = create_entry_block_alloca(fn, sty, name.lexeme);
+                // record that this variable is a struct of this type
+                codegen::named_struct_vars[name.lexeme] = struct_name;
+            }
+            else
+            {
+                alloca = create_entry_block_alloca(fn, name.lexeme);
+            }
+
             codegen::named_values[name.lexeme] = alloca;
             if (initializer)
             {
                 llvm::Value *v = initializer->codegen();
-                codegen::builder.CreateStore(
-                        v ? v : llvm::ConstantInt::get(codegen::context, llvm::APInt(32, 0)),
-                        alloca);
+                if (is_struct_type)
+                {
+                    // not handling struct initializers now; skip
+                }
+                else
+                {
+                    codegen::builder.CreateStore(
+                            v ? v : llvm::ConstantInt::get(codegen::context, llvm::APInt(32, 0)),
+                            alloca);
+                }
             }
             else
             {
-                codegen::builder.CreateStore(
-                        llvm::ConstantInt::get(codegen::context, llvm::APInt(32, 0)),
-                        alloca);
+                if (!is_struct_type)
+                {
+                    codegen::builder.CreateStore(
+                            llvm::ConstantInt::get(codegen::context, llvm::APInt(32, 0)),
+                            alloca);
+                }
+                else
+                {
+                    // zero-initialize struct
+                    // create memset or leave uninitialized; for simplicity, store zeroinitializer to global-like storage is complex; skip
+                }
             }
         }
         else
@@ -238,6 +283,22 @@ llvm::Value *VarDeclStmt::codegen()
 
     if (!codegen::modules)
         return nullptr;
+
+    if (is_struct_type)
+    {
+        // create a global struct variable (zero init)
+        llvm::StructType *sty = codegen::struct_types[struct_name];
+        llvm::Constant *init_const = llvm::Constant::getNullValue(sty);
+        auto *gv = new llvm::GlobalVariable(*codegen::modules,
+                                            sty,
+                                            false,
+                                            llvm::GlobalValue::ExternalLinkage,
+                                            init_const,
+                                            name.lexeme);
+        codegen::named_values[name.lexeme] = gv;
+        codegen::named_struct_vars[name.lexeme] = struct_name;
+        return gv;
+    }
 
     llvm::Constant *init_const =
             llvm::ConstantInt::get(codegen::context, llvm::APInt(32, 0));
@@ -349,7 +410,41 @@ StructDeclStmt::StructDeclStmt(lexer::Token n, std::vector<VarDeclStmt> f) :
 
 llvm::Value *StructDeclStmt::codegen()
 {
-    // structs are not supported in codegen yet
+    // register struct type and fields
+    std::string sname = name.lexeme;
+    if (codegen::struct_types.find(sname) != codegen::struct_types.end())
+    {
+        // already defined; ignore
+        return nullptr;
+    }
+
+    std::vector<llvm::Type *> ftypes;
+    std::vector<std::string> fnames;
+    for (const auto &f : fields)
+    {
+        std::string tname = f.type_token.lexeme;
+        if (codegen::struct_types.find(tname) != codegen::struct_types.end())
+        {
+            // field is a struct type
+            ftypes.push_back(codegen::struct_types[tname]);
+        }
+        else if (tname == "int")
+        {
+            ftypes.push_back(llvm::Type::getInt32Ty(codegen::context));
+        }
+        else
+        {
+            // default to int
+            ftypes.push_back(llvm::Type::getInt32Ty(codegen::context));
+        }
+        fnames.push_back(f.name.lexeme);
+    }
+
+    llvm::StructType *sty = llvm::StructType::create(codegen::context, sname);
+    sty->setBody(ftypes, /*isPacked=*/false);
+    codegen::struct_types[sname] = sty;
+    codegen::struct_fields[sname] = fnames;
+
     return nullptr;
 }
 

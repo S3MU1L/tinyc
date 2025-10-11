@@ -53,10 +53,10 @@ struct BinaryExpr final : Expr
 
 struct AssignmentExpr final : Expr
 {
-    lexer::Token name;
+    ExprPtr      lhs;
     ExprPtr      value;
 
-    AssignmentExpr(lexer::Token n, ExprPtr v);
+    AssignmentExpr(ExprPtr l, ExprPtr v);
     llvm::Value *codegen() override;
 };
 
@@ -67,5 +67,16 @@ struct CallExpr final : Expr
 
     CallExpr(ExprPtr c, std::vector<ExprPtr> args);
     llvm::Value *codegen() override;
+};
+
+struct MemberExpr final : Expr
+{
+    ExprPtr      object;
+    lexer::Token member;
+    bool         arrow;
+
+    MemberExpr(ExprPtr obj, lexer::Token m, bool a);
+    llvm::Value *codegen() override;
+    llvm::Value *codegen_address();
 };
 }
