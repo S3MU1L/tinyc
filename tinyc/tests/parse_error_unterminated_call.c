@@ -1,0 +1,6 @@
+int main() {
+    int a = 1;
+    println(a;
+    return 0;
+}
+
