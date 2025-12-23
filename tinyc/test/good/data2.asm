@@ -1,3 +1,0 @@
-.word 0xffff, 0xeeee
-main:
-    halt

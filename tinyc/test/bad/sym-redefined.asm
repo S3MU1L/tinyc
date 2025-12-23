@@ -1,4 +1,0 @@
-main:
-    halt
-main:
-    halt

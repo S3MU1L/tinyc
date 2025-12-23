@@ -208,12 +208,10 @@ llvm::Value *VarDeclStmt::codegen()
     if (codegen::builder.GetInsertBlock())
         fn = codegen::builder.GetInsertBlock()->getParent();
 
-    // determine if this is a struct type
     bool is_struct_type = false;
     std::string struct_name;
     if (!type_token.lexeme.empty())
     {
-        // if the type token lexeme matches a known struct name
         if (codegen::struct_types.find(type_token.lexeme) != codegen::struct_types.end())
         {
             is_struct_type = true;

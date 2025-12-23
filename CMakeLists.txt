@@ -51,3 +51,42 @@ add_executable(tinyc
 
 llvm_map_components_to_libnames(LLVM_LIBS Core Support)
 target_link_libraries(tinyc PRIVATE ${LLVM_LIBS})
+
+# -------------------------
+# Tests (CTest)
+# -------------------------
+include(CTest)
+enable_testing()
+
+# Python is used only for a small, portable test harness.
+find_package(Python3 REQUIRED COMPONENTS Interpreter)
+
+set(TINYC_TEST_DIR "${CMAKE_SOURCE_DIR}/tinyc/tests")
+
+function(add_tinyc_compile_test NAME SRC EXPECTED_LL)
+    add_test(
+        NAME ${NAME}
+        COMMAND ${Python3_EXECUTABLE}
+                "${TINYC_TEST_DIR}/run_tinyc_test.py"
+                --tinyc "$<TARGET_FILE:tinyc>"
+                --src "${TINYC_TEST_DIR}/${SRC}"
+                --expected "${TINYC_TEST_DIR}/${EXPECTED_LL}"
+    )
+endfunction()
+
+function(add_tinyc_negative_test NAME SRC)
+    add_test(
+        NAME ${NAME}
+        COMMAND ${Python3_EXECUTABLE}
+                "${TINYC_TEST_DIR}/run_tinyc_test.py"
+                --tinyc "$<TARGET_FILE:tinyc>"
+                --src "${TINYC_TEST_DIR}/${SRC}"
+                --expect-fail
+    )
+endfunction()
+
+add_tinyc_compile_test(tinyc_hello hello.c hello.ll)
+add_tinyc_compile_test(tinyc_fibonacci fibonacci.c fibonacci.ll)
+add_tinyc_compile_test(tinyc_struct_field_access struct_field_access.c struct_field_access.ll)
+
+add_tinyc_negative_test(tinyc_parse_error_missing_semicolon parse_error_missing_semicolon.c)

@@ -220,7 +220,6 @@ llvm::Value *AssignmentExpr::codegen()
         return val;
     }
 
-    // member assignment
     if (auto *mem = dynamic_cast<MemberExpr *>(lhs.get()))
     {
         llvm::Value *addr = mem->codegen_address();
